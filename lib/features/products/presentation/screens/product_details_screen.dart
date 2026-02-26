@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:flutter_riverpod_clean_architecture/core/network/api_client.dart';
+import 'package:flutter_riverpod_clean_architecture/core/providers/network_providers.dart';
 import 'package:flutter_riverpod_clean_architecture/core/utils/responsive_utils.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/domain/entities/attribute_entity.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/domain/entities/product_entity.dart';
@@ -406,11 +406,14 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
 
   Future<void> _fetchRecommendations() async {
     try {
-      final apiClient = ApiClient();
+      final apiClient = ref.read(apiClientProvider);
       final response = await apiClient.get(
-        'product/recommendations/${widget.product.id}',
+        '/api/product/recommendations/${widget.product.id}',
       );
-      if (response != null && response['success'] == true) {
+      print('Recommendations API response: $response');
+      if (response != null &&
+          response is Map<String, dynamic> &&
+          response['success'] == true) {
         final data = response['data'] as Map<String, dynamic>;
 
         List<ProductEntity> parseProducts(String key) {
@@ -431,10 +434,16 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
             _topRatedProducts = parseProducts('top_rated');
             _latestProducts = parseProducts('latest');
           });
+          print(
+            'Recommendations loaded: related=${_relatedProducts.length}, topRated=${_topRatedProducts.length}, latest=${_latestProducts.length}',
+          );
         }
+      } else {
+        print('Recommendations API returned unexpected response: $response');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('Failed to fetch recommendations: $e');
+      print('Stack trace: $stackTrace');
     }
   }
 
