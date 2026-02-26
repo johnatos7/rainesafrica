@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter_riverpod_clean_architecture/core/network/api_client.dart';
+import 'package:flutter_riverpod_clean_architecture/core/utils/responsive_utils.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/data/datasources/product_remote_data_source.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/data/models/product_model.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/presentation/screens/product_details_screen.dart';
@@ -12,6 +13,7 @@ import 'package:flutter_riverpod_clean_architecture/features/cart/providers/cart
 import 'package:flutter_riverpod_clean_architecture/features/currency/presentation/providers/currency_provider.dart';
 import 'package:flutter_riverpod_clean_architecture/features/wishlist/presentation/widgets/wishlist_button.dart';
 import 'package:flutter_riverpod_clean_architecture/features/layby/presentation/widgets/layby_badge_widget.dart';
+import 'package:flutter_riverpod_clean_architecture/features/products/presentation/widgets/product_card.dart';
 import 'package:flutter_riverpod_clean_architecture/core/constants/app_constants.dart';
 import 'package:flutter_riverpod_clean_architecture/features/categories/providers/category_providers.dart';
 import 'package:flutter_riverpod_clean_architecture/features/categories/domain/entities/category_entity.dart';
@@ -685,18 +687,33 @@ class _CategoryProductsScreenState
     }
 
     if (_isGridView) {
-      return GridView.builder(
-        controller: _scrollController,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.68,
-          crossAxisSpacing: 4,
-          mainAxisSpacing: 4,
-        ),
-        itemCount: _filteredProducts.length,
-        itemBuilder: (context, index) {
-          return _buildProductCard(_filteredProducts[index].toEntity());
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final availableWidth = constraints.maxWidth;
+          final crossAxisCount = ResponsiveUtils.gridCrossAxisCount(
+            availableWidth,
+          );
+          final childAspectRatio = ResponsiveUtils.gridChildAspectRatio(
+            availableWidth,
+          );
+
+          return GridView.builder(
+            controller: _scrollController,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              childAspectRatio: childAspectRatio,
+              crossAxisSpacing: 4,
+              mainAxisSpacing: 4,
+            ),
+            itemCount: _filteredProducts.length,
+            itemBuilder: (context, index) {
+              return ProductCard(
+                product: _filteredProducts[index].toEntity(),
+                isGridItem: true,
+              );
+            },
+          );
         },
       );
     } else {

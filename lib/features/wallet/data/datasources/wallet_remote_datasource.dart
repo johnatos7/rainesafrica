@@ -26,7 +26,9 @@ class WalletRemoteDataSourceImpl implements WalletRemoteDataSource {
 
     try {
       final response = await client.get('/api/wallet/consumer');
-      return WalletEntity.fromJson(response as Map<String, dynamic>);
+      final walletMap =
+          response is Map<String, dynamic> ? response : <String, dynamic>{};
+      return WalletEntity.fromJson(walletMap);
     } catch (e) {
       if (e is ServerException ||
           e is NetworkException ||

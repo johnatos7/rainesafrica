@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod_clean_architecture/core/utils/responsive_utils.dart';
 import 'package:flutter_riverpod_clean_architecture/features/currency/presentation/providers/currency_provider.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/presentation/screens/product_details_screen.dart';
 
@@ -38,8 +39,8 @@ class WishlistItemWidget extends ConsumerWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(6),
                 child: SizedBox(
-                  width: 80,
-                  height: 80,
+                  width: ResponsiveUtils.cartItemImageSize(context),
+                  height: ResponsiveUtils.cartItemImageSize(context),
                   child: Image.network(
                     product.productThumbnail.imageUrl,
                     fit: BoxFit.cover,

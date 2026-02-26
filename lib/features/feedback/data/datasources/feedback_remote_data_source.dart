@@ -21,12 +21,21 @@ class FeedbackRemoteDataSourceImpl implements FeedbackRemoteDataSource {
       '/api/marketing-feedback/submit',
       data: request.toJson(),
     );
-    final responseMap = data as Map<String, dynamic>?;
-    final feedbackData = responseMap?['feedback'] as Map<String, dynamic>?;
-    if (feedbackData == null) {
-      return FeedbackEntity.fromJson(responseMap ?? {});
+
+    // API may return null on success — handle gracefully
+    if (data == null) {
+      return FeedbackEntity.fromJson({});
     }
-    return FeedbackEntity.fromJson(feedbackData);
+
+    if (data is Map<String, dynamic>) {
+      final feedbackData = data['feedback'];
+      if (feedbackData is Map<String, dynamic>) {
+        return FeedbackEntity.fromJson(feedbackData);
+      }
+      return FeedbackEntity.fromJson(data);
+    }
+
+    return FeedbackEntity.fromJson({});
   }
 
   @override
@@ -41,6 +50,12 @@ class FeedbackRemoteDataSourceImpl implements FeedbackRemoteDataSource {
       '/api/marketing-feedback/check-submitted',
       queryParameters: queryParams,
     );
-    return CheckFeedbackResponse.fromJson(data as Map<String, dynamic>);
+
+    if (data is Map<String, dynamic>) {
+      return CheckFeedbackResponse.fromJson(data);
+    }
+
+    // Default to not-submitted if response is null
+    return CheckFeedbackResponse.fromJson({});
   }
 }

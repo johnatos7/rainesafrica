@@ -38,9 +38,15 @@ class VoucherRemoteDataSourceImpl implements VoucherRemoteDataSource {
         '/api/vouchers/my-vouchers',
         queryParameters: queryParams.isNotEmpty ? queryParams : null,
       );
-      final data = response['data'] as Map<String, dynamic>? ?? {};
+      final responseMap =
+          response is Map<String, dynamic> ? response : <String, dynamic>{};
+      final data =
+          responseMap['data'] is Map<String, dynamic>
+              ? responseMap['data'] as Map<String, dynamic>
+              : <String, dynamic>{};
       final vouchers =
-          (data['vouchers'] as List<dynamic>? ?? [])
+          (data['vouchers'] is List ? data['vouchers'] as List : [])
+              .where((e) => e is Map<String, dynamic>)
               .map((e) => VoucherEntity.fromJson(e as Map<String, dynamic>))
               .toList();
       return vouchers;
@@ -60,9 +66,15 @@ class VoucherRemoteDataSourceImpl implements VoucherRemoteDataSource {
     await _ensureConnected();
     try {
       final response = await client.get('/api/vouchers/redeemed');
-      final data = response['data'] as Map<String, dynamic>? ?? {};
+      final responseMap =
+          response is Map<String, dynamic> ? response : <String, dynamic>{};
+      final data =
+          responseMap['data'] is Map<String, dynamic>
+              ? responseMap['data'] as Map<String, dynamic>
+              : <String, dynamic>{};
       final vouchers =
-          (data['vouchers'] as List<dynamic>? ?? [])
+          (data['vouchers'] is List ? data['vouchers'] as List : [])
+              .where((e) => e is Map<String, dynamic>)
               .map((e) => VoucherEntity.fromJson(e as Map<String, dynamic>))
               .toList();
       return vouchers;
@@ -85,7 +97,10 @@ class VoucherRemoteDataSourceImpl implements VoucherRemoteDataSource {
         '/api/vouchers/check',
         data: {'code': code},
       );
-      return VoucherActionResult.fromJson(response as Map<String, dynamic>);
+      if (response is Map<String, dynamic>) {
+        return VoucherActionResult.fromJson(response);
+      }
+      return VoucherActionResult.fromJson({});
     } catch (e) {
       if (e is ServerException ||
           e is NetworkException ||
@@ -105,7 +120,10 @@ class VoucherRemoteDataSourceImpl implements VoucherRemoteDataSource {
         '/api/vouchers/redeem',
         data: {'code': code},
       );
-      return VoucherActionResult.fromJson(response as Map<String, dynamic>);
+      if (response is Map<String, dynamic>) {
+        return VoucherActionResult.fromJson(response);
+      }
+      return VoucherActionResult.fromJson({});
     } catch (e) {
       if (e is ServerException ||
           e is NetworkException ||
@@ -124,8 +142,10 @@ class VoucherRemoteDataSourceImpl implements VoucherRemoteDataSource {
       final response = await client.post(
         '/api/vouchers/$voucherId/resend-email',
       );
-      return (response as Map<String, dynamic>)['message'] as String? ??
-          'Email sent successfully';
+      if (response is Map<String, dynamic>) {
+        return response['message']?.toString() ?? 'Email sent successfully';
+      }
+      return 'Email sent successfully';
     } catch (e) {
       if (e is ServerException ||
           e is NetworkException ||

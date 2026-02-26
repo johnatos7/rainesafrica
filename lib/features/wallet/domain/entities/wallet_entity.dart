@@ -4,24 +4,49 @@ class WalletEntity extends Equatable {
   final int id;
   final int consumerId;
   final double balance;
+  final double nonCashableBalance;
+  final String currencyCode;
   final WalletTransactionsEntity transactions;
 
   const WalletEntity({
     required this.id,
     required this.consumerId,
     required this.balance,
+    this.nonCashableBalance = 0.0,
+    this.currencyCode = 'USD',
     required this.transactions,
   });
 
+  double get totalBalance => balance + nonCashableBalance;
+
   factory WalletEntity.fromJson(Map<String, dynamic> json) {
     return WalletEntity(
-      id: json['id'] as int? ?? 0,
-      consumerId: json['consumer_id'] as int? ?? 0,
-      balance: (json['balance'] as num?)?.toDouble() ?? 0.0,
+      id: _safeInt(json['id']),
+      consumerId: _safeInt(json['consumer_id']),
+      balance: _safeDouble(json['balance']),
+      nonCashableBalance: _safeDouble(json['non_cashable_balance']),
+      currencyCode: json['currency_code']?.toString() ?? 'USD',
       transactions: WalletTransactionsEntity.fromJson(
-        json['transactions'] as Map<String, dynamic>? ?? {},
+        json['transactions'] is Map<String, dynamic>
+            ? json['transactions'] as Map<String, dynamic>
+            : {},
       ),
     );
+  }
+
+  static double _safeDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
+  }
+
+  static int _safeInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
   }
 
   Map<String, dynamic> toJson() {
@@ -29,12 +54,21 @@ class WalletEntity extends Equatable {
       'id': id,
       'consumer_id': consumerId,
       'balance': balance,
+      'non_cashable_balance': nonCashableBalance,
+      'currency_code': currencyCode,
       'transactions': transactions.toJson(),
     };
   }
 
   @override
-  List<Object?> get props => [id, consumerId, balance, transactions];
+  List<Object?> get props => [
+    id,
+    consumerId,
+    balance,
+    nonCashableBalance,
+    currencyCode,
+    transactions,
+  ];
 }
 
 class WalletTransactionsEntity extends Equatable {

@@ -34,8 +34,7 @@ class CheckoutSummarySection extends ConsumerWidget {
     // Shipping fee: applies only if subtotal (USD) < 100; fixed $10 USD
     // Keep this value in USD and let the formatter handle conversion
     const double defaultUsdShipping = 10.0;
-    final double shippingFee =
-        subtotal >= 100.0 ? 0.0 : defaultUsdShipping;
+    final double shippingFee = subtotal >= 100.0 ? 0.0 : defaultUsdShipping;
 
     // Delivery fee: comes from selected shipping option price passed in as shippingCost
     final double deliveryFee = shippingCost;
@@ -53,13 +52,14 @@ class CheckoutSummarySection extends ConsumerWidget {
 
     // Compute payable total after applying points and wallet (if enabled)
     double payableTotal = total;
+    final hasGiftCard = cart.containsGiftCard;
     final settingsValue = settingsAsync.hasValue ? settingsAsync.value : null;
-    if (settingsValue != null) {
+    if (settingsValue != null && !hasGiftCard) {
       final ratio =
           double.tryParse(settingsValue.walletPoints.pointCurrencyRatio) ?? 0.0;
       final availablePoints = pointsState.points?.balance ?? 0.0;
       final pointsValue = ratio > 0 ? (availablePoints / ratio) : 0.0;
-      final walletBalance = walletState.wallet?.balance ?? 0.0;
+      final walletBalance = walletState.wallet?.totalBalance ?? 0.0;
 
       final pointsApplied =
           checkoutState.usePoints ? pointsValue.clamp(0.0, total) : 0.0;
@@ -127,16 +127,17 @@ class CheckoutSummarySection extends ConsumerWidget {
             // Points & Wallet usage controls and info
             settingsAsync.when(
               data: (settings) {
+                final hasGiftCard = cart.containsGiftCard;
                 final ratio =
                     double.tryParse(settings.walletPoints.pointCurrencyRatio) ??
                     0.0;
                 final availablePoints = pointsState.points?.balance ?? 0.0;
                 final pointsValue = ratio > 0 ? (availablePoints / ratio) : 0.0;
-                final walletBalance = walletState.wallet?.balance ?? 0.0;
+                final walletBalance = walletState.wallet?.totalBalance ?? 0.0;
 
                 // Compute remaining wallet balance after applying points first, then wallet
                 final pointsApplied =
-                    checkoutState.usePoints
+                    (checkoutState.usePoints && !hasGiftCard)
                         ? pointsValue.clamp(0.0, total)
                         : 0.0;
                 final remainingAfterPoints = (total - pointsApplied).clamp(
@@ -144,7 +145,7 @@ class CheckoutSummarySection extends ConsumerWidget {
                   double.infinity,
                 );
                 final walletApplied =
-                    checkoutState.useWallet
+                    (checkoutState.useWallet && !hasGiftCard)
                         ? walletBalance.clamp(0.0, remainingAfterPoints)
                         : 0.0;
                 final walletBalanceAfter = (walletBalance - walletApplied)
@@ -153,6 +154,36 @@ class CheckoutSummarySection extends ConsumerWidget {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (hasGiftCard)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.orange.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              color: Colors.orange.shade700,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Gift cards cannot be purchased using wallet credit or points.',
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: Colors.orange.shade800,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     Text('Points', style: textTheme.titleSmall),
                     const SizedBox(height: 4),
                     Row(
@@ -167,9 +198,11 @@ class CheckoutSummarySection extends ConsumerWidget {
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Use Points'),
-                      value: checkoutState.usePoints,
+                      value: checkoutState.usePoints && !hasGiftCard,
                       onChanged:
-                          (availablePoints <= 0.0 || ratio <= 0.0)
+                          (hasGiftCard ||
+                                  availablePoints <= 0.0 ||
+                                  ratio <= 0.0)
                               ? null
                               : (v) => checkoutNotifier.setUsePoints(v),
                     ),
@@ -189,9 +222,9 @@ class CheckoutSummarySection extends ConsumerWidget {
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Use Wallet Credit'),
-                      value: checkoutState.useWallet,
+                      value: checkoutState.useWallet && !hasGiftCard,
                       onChanged:
-                          walletBalance <= 0.0
+                          (hasGiftCard || walletBalance <= 0.0)
                               ? null
                               : (v) => checkoutNotifier.setUseWallet(v),
                     ),
@@ -332,7 +365,8 @@ class CheckoutSummarySection extends ConsumerWidget {
                   ],
                 ),
                 // Show variation if available
-                if (item.variationDisplayName != null || item.selectedVariation != null) ...[
+                if (item.variationDisplayName != null ||
+                    item.selectedVariation != null) ...[
                   const SizedBox(height: 4),
                   Container(
                     padding: const EdgeInsets.symmetric(

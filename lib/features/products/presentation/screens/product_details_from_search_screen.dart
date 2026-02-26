@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:flutter_riverpod_clean_architecture/core/utils/responsive_utils.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/domain/entities/attribute_entity.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/domain/entities/product_entity.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/providers/product_providers.dart';
@@ -340,6 +341,7 @@ class _ProductDetailsFromSearchScreenState
 
   Widget _buildProductImageSection(ProductEntity product) {
     final images = _getProductImages(product);
+    final imageHeight = ResponsiveUtils.productDetailImageHeight(context);
 
     return Column(
       children: [
@@ -348,7 +350,7 @@ class _ProductDetailsFromSearchScreenState
           itemBuilder: (context, index, realIndex) {
             return Container(
               width: double.infinity,
-              height: 300,
+              height: imageHeight,
               margin: const EdgeInsets.symmetric(horizontal: 16),
               child: CachedNetworkImage(
                 imageUrl: images[index],
@@ -379,7 +381,7 @@ class _ProductDetailsFromSearchScreenState
             );
           },
           options: CarouselOptions(
-            height: 300,
+            height: imageHeight,
             viewportFraction: 1.0,
             enableInfiniteScroll: images.length > 1,
             onPageChanged: (index, reason) {

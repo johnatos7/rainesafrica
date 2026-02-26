@@ -28,7 +28,7 @@ class FeedbackEntity extends Equatable {
 
   factory FeedbackEntity.fromJson(Map<String, dynamic> json) {
     return FeedbackEntity(
-      id: json['id'] as int,
+      id: (json['id'] as int?) ?? 0,
       orderNumber: json['order_number']?.toString() ?? '',
       orderId: json['order_id'] as int?,
       userId: json['user_id'] as int?,

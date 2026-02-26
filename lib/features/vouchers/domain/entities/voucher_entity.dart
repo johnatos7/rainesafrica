@@ -25,25 +25,25 @@ class VoucherEntity extends Equatable {
 
   factory VoucherEntity.fromJson(Map<String, dynamic> json) {
     return VoucherEntity(
-      id: json['id'] as int? ?? 0,
+      id: _safeParseInt(json['id']),
       code: json['code'] as String? ?? '',
       amount: _safeParseDouble(json['amount']),
       currencyCode: json['currency_code'] as String? ?? 'USD',
       status: json['status'] as String? ?? 'active',
       redeemedAt:
           json['redeemed_at'] != null
-              ? DateTime.tryParse(json['redeemed_at'] as String)
+              ? DateTime.tryParse(json['redeemed_at'].toString())
               : null,
       expiresAt:
           json['expires_at'] != null
-              ? DateTime.tryParse(json['expires_at'] as String)
+              ? DateTime.tryParse(json['expires_at'].toString())
               : null,
       createdAt:
           json['created_at'] != null
-              ? DateTime.tryParse(json['created_at'] as String)
+              ? DateTime.tryParse(json['created_at'].toString())
               : null,
       product:
-          json['product'] != null
+          json['product'] is Map<String, dynamic>
               ? VoucherProductEntity.fromJson(
                 json['product'] as Map<String, dynamic>,
               )
@@ -62,6 +62,14 @@ class VoucherEntity extends Equatable {
     if (value is num) return value.toDouble();
     if (value is String) return double.tryParse(value) ?? 0.0;
     return 0.0;
+  }
+
+  static int _safeParseInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
   }
 
   @override
@@ -93,10 +101,10 @@ class VoucherProductEntity extends Equatable {
 
   factory VoucherProductEntity.fromJson(Map<String, dynamic> json) {
     return VoucherProductEntity(
-      id: json['id'] as int? ?? 0,
+      id: VoucherEntity._safeParseInt(json['id']),
       name: json['name'] as String? ?? '',
       price: VoucherEntity._safeParseDouble(json['price']),
-      isGiftCard: json['is_gift_card'] as bool? ?? false,
+      isGiftCard: json['is_gift_card'] == true || json['is_gift_card'] == 1,
     );
   }
 
@@ -119,13 +127,16 @@ class VoucherActionResult {
   });
 
   factory VoucherActionResult.fromJson(Map<String, dynamic> json) {
-    final data = json['data'] as Map<String, dynamic>?;
+    final data =
+        json['data'] is Map<String, dynamic>
+            ? json['data'] as Map<String, dynamic>
+            : null;
     return VoucherActionResult(
-      success: json['success'] as bool? ?? false,
-      message: json['message'] as String? ?? '',
+      success: json['success'] == true,
+      message: json['message']?.toString() ?? '',
       voucher:
-          data?['voucher'] != null
-              ? VoucherEntity.fromJson(data!['voucher'] as Map<String, dynamic>)
+          data != null && data['voucher'] is Map<String, dynamic>
+              ? VoucherEntity.fromJson(data['voucher'] as Map<String, dynamic>)
               : null,
       walletBalance:
           data?['wallet_balance'] != null

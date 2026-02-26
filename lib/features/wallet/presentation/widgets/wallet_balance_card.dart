@@ -1,29 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod_clean_architecture/features/wallet/domain/entities/wallet_entity.dart';
+import 'package:flutter_riverpod_clean_architecture/features/currency/presentation/providers/currency_provider.dart';
 
-class WalletBalanceCard extends StatelessWidget {
+class WalletBalanceCard extends ConsumerWidget {
   final WalletEntity wallet;
 
   const WalletBalanceCard({super.key, required this.wallet});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colors = theme.colorScheme;
+    final formatCurrency = ref.watch(currencyFormattingProvider);
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24.0),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [colorScheme.primary, colorScheme.primary.withOpacity(0.8)],
-        ),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.outline.withOpacity(0.12)),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.primary.withOpacity(0.3),
+            color: colors.shadow.withOpacity(0.06),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -32,69 +31,143 @@ class WalletBalanceCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: colorScheme.onPrimary.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: colors.primary.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.account_balance_wallet_outlined,
+                    color: colors.primary,
+                    size: 24,
+                  ),
                 ),
-                child: Icon(
-                  Icons.account_balance_wallet,
-                  color: colorScheme.onPrimary,
-                  size: 24,
+                const SizedBox(width: 12),
+                Text(
+                  'Wallet Balance',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: colors.onSurface,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Wallet Balance',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onPrimary.withOpacity(0.8),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
-                      'Available Funds',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onPrimary.withOpacity(0.6),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Text(
-            '\$${wallet.balance.toStringAsFixed(2)}',
-            style: theme.textTheme.headlineLarge?.copyWith(
-              color: colorScheme.onPrimary,
-              fontWeight: FontWeight.bold,
-              fontSize: 32,
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(
-                Icons.trending_up,
-                color: colorScheme.onPrimary.withOpacity(0.8),
-                size: 16,
+
+          Divider(height: 1, color: colors.outline.withOpacity(0.1)),
+
+          // Regular Balance
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+            child: Text(
+              'Regular Balance:',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colors.onSurface.withOpacity(0.6),
+                fontWeight: FontWeight.w500,
               ),
-              const SizedBox(width: 4),
-              Text(
-                '${wallet.transactions.total} transactions',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onPrimary.withOpacity(0.8),
-                  fontWeight: FontWeight.w500,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              formatCurrency(wallet.balance),
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: colors.onSurface,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Gift Card Balance
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF4CAF50).withOpacity(0.06),
+              borderRadius: BorderRadius.circular(12),
+              border: Border(
+                left: BorderSide(color: const Color(0xFF4CAF50), width: 3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.card_giftcard,
+                  color: const Color(0xFF4CAF50),
+                  size: 28,
                 ),
-              ),
-            ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Gift Card Balance:',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurface.withOpacity(0.6),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Text(
+                        formatCurrency(wallet.nonCashableBalance),
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF4CAF50),
+                        ),
+                      ),
+                      Text(
+                        '(Can only be used for purchases)',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurface.withOpacity(0.45),
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Total Available
+          Container(
+            margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: colors.primary.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(12),
+              border: Border(left: BorderSide(color: colors.primary, width: 3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Total Available:',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.onSurface.withOpacity(0.6),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  formatCurrency(wallet.totalBalance),
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: colors.primary,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

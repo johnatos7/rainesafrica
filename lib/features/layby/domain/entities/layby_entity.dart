@@ -331,6 +331,7 @@ class LaybyPayment {
   final double amount;
   final String status;
   final String? paymentMethod;
+  final String? paymentNumber;
   final String? createdAt;
   final String? updatedAt;
 
@@ -339,6 +340,7 @@ class LaybyPayment {
     required this.amount,
     required this.status,
     this.paymentMethod,
+    this.paymentNumber,
     this.createdAt,
     this.updatedAt,
   });
@@ -347,8 +349,10 @@ class LaybyPayment {
     return LaybyPayment(
       id: json['id'] as int,
       amount: _toDouble(json['amount']),
-      status: json['status'] as String? ?? '',
+      status:
+          json['payment_status'] as String? ?? json['status'] as String? ?? '',
       paymentMethod: json['payment_method'] as String?,
+      paymentNumber: json['payment_number'] as String?,
       createdAt: json['created_at'] as String?,
       updatedAt: json['updated_at'] as String?,
     );
@@ -358,8 +362,9 @@ class LaybyPayment {
     return {
       'id': id,
       'amount': amount,
-      'status': status,
+      'payment_status': status,
       'payment_method': paymentMethod,
+      'payment_number': paymentNumber,
       'created_at': createdAt,
       'updated_at': updatedAt,
     };

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_riverpod_clean_architecture/core/utils/responsive_utils.dart';
 import 'package:flutter_riverpod_clean_architecture/features/home/providers/home_providers.dart';
 import 'package:flutter_riverpod_clean_architecture/features/home/data/models/home_config_model.dart';
 import 'package:flutter_riverpod_clean_architecture/features/home/providers/recently_viewed_provider.dart';
@@ -239,7 +240,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
           const SizedBox(height: 12),
           // Horizontal product list
           SizedBox(
-            height: 270,
+            height: ResponsiveUtils.productSectionHeight(context),
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -310,11 +311,11 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
               child: CachedNetworkImage(
                 imageUrl: imageUrl,
                 width: double.infinity,
-                height: 200,
+                height: ResponsiveUtils.interspersedBannerHeight(context),
                 fit: BoxFit.cover,
                 placeholder:
                     (_, __) => Container(
-                      height: 200,
+                      height: ResponsiveUtils.interspersedBannerHeight(context),
                       color: colors.surfaceContainerHighest,
                     ),
                 errorWidget: (_, __, ___) => const SizedBox.shrink(),
@@ -525,7 +526,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
           SectionTitle(title: title, showViewAll: false),
           const SizedBox(height: 12),
           SizedBox(
-            height: 124,
+            height: ResponsiveUtils.categorySectionHeight(context),
             child: featuredCategoriesAsync.when(
               data:
                   (categories) => ListView.builder(
@@ -573,13 +574,13 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
         );
       },
       child: Container(
-        width: 84,
+        width: ResponsiveUtils.categoryCardWidth(context),
         margin: const EdgeInsets.only(right: 12),
         child: Column(
           children: [
             Container(
-              width: 76,
-              height: 76,
+              width: ResponsiveUtils.categoryCirlceSize(context),
+              height: ResponsiveUtils.categoryCirlceSize(context),
               decoration: BoxDecoration(
                 color: colors.surface,
                 shape: BoxShape.circle,
@@ -593,8 +594,8 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                       ? ClipOval(
                         child: CachedNetworkImage(
                           imageUrl: category.categoryImage!.imageUrl,
-                          width: 76,
-                          height: 76,
+                          width: ResponsiveUtils.categoryCirlceSize(context),
+                          height: ResponsiveUtils.categoryCirlceSize(context),
                           fit: BoxFit.cover,
                           placeholder:
                               (_, __) =>
@@ -652,7 +653,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
           SectionTitle(title: title, showViewAll: false),
           const SizedBox(height: 12),
           SizedBox(
-            height: 270,
+            height: ResponsiveUtils.productSectionHeight(context),
             child: async.when(
               data: (products) {
                 if (products.isEmpty) return const SizedBox.shrink();
@@ -715,55 +716,60 @@ class _BannerCarouselWithIndicatorState
   Widget build(BuildContext context) {
     return Column(
       children: [
-        SizedBox(
-          height: 200,
-          width: double.infinity,
-          child: CarouselSlider(
-            carouselController: carouselController,
-            options: CarouselOptions(
-              height: 200,
-              viewportFraction: 0.92,
-              enlargeCenterPage: true,
-              enlargeFactor: 0.15,
-              autoPlay: true,
-              autoPlayInterval: const Duration(seconds: 5),
-              enableInfiniteScroll: true,
-              onPageChanged: (index, reason) {
-                setState(() {
-                  currentIndex = index;
-                });
-              },
-            ),
-            items:
-                widget.images.map((imageUrl) {
-                  return Builder(
-                    builder: (BuildContext context) {
-                      return ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: CachedNetworkImage(
-                          imageUrl: imageUrl,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          placeholder:
-                              (_, __) => Container(
-                                color: widget.colors.surfaceContainerLow,
-                              ),
-                          errorWidget:
-                              (_, __, ___) => Container(
-                                color: widget.colors.surfaceContainerLow,
-                                child: Icon(
-                                  Icons.image_not_supported_outlined,
-                                  color: widget.colors.onSurface.withValues(
-                                    alpha: 0.3,
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final bHeight = ResponsiveUtils.bannerHeight(context);
+            return SizedBox(
+              height: bHeight,
+              width: double.infinity,
+              child: CarouselSlider(
+                carouselController: carouselController,
+                options: CarouselOptions(
+                  height: bHeight,
+                  viewportFraction: 0.92,
+                  enlargeCenterPage: true,
+                  enlargeFactor: 0.15,
+                  autoPlay: true,
+                  autoPlayInterval: const Duration(seconds: 5),
+                  enableInfiniteScroll: true,
+                  onPageChanged: (index, reason) {
+                    setState(() {
+                      currentIndex = index;
+                    });
+                  },
+                ),
+                items:
+                    widget.images.map((imageUrl) {
+                      return Builder(
+                        builder: (BuildContext context) {
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: CachedNetworkImage(
+                              imageUrl: imageUrl,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                              placeholder:
+                                  (_, __) => Container(
+                                    color: widget.colors.surfaceContainerLow,
                                   ),
-                                ),
-                              ),
-                        ),
+                              errorWidget:
+                                  (_, __, ___) => Container(
+                                    color: widget.colors.surfaceContainerLow,
+                                    child: Icon(
+                                      Icons.image_not_supported_outlined,
+                                      color: widget.colors.onSurface.withValues(
+                                        alpha: 0.3,
+                                      ),
+                                    ),
+                                  ),
+                            ),
+                          );
+                        },
                       );
-                    },
-                  );
-                }).toList(),
-          ),
+                    }).toList(),
+              ),
+            );
+          },
         ),
         const SizedBox(height: 10),
         Row(

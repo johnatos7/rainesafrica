@@ -162,6 +162,7 @@ class ProductModel extends Equatable {
   final List<ProductTagModel>? tags;
   final List<ProductReviewModel>? reviews;
   final List<AttributeModel>? attributes;
+  final int? isGiftCard;
 
   const ProductModel({
     this.id,
@@ -230,6 +231,7 @@ class ProductModel extends Equatable {
     this.tags,
     this.reviews,
     this.attributes,
+    this.isGiftCard,
   });
 
   @override
@@ -350,7 +352,11 @@ class ProductModel extends Equatable {
       productThumbnailId: (json['product_thumbnail_id'] as num?)?.toInt(),
       productMetaImageId: (json['product_meta_image_id'] as num?)?.toInt(),
       sizeChartImageId: (json['size_chart_image_id'] as num?)?.toInt(),
-      estimatedDeliveryText: json['estimated_delivery_text'] as String?,
+      estimatedDeliveryText:
+          (json['estimated_delivery_text'] as String?)?.trim().isNotEmpty ==
+                  true
+              ? (json['estimated_delivery_text'] as String).trim()
+              : null,
       returnPolicyText: json['return_policy_text'] as String?,
       warranty: json['warranty'] as String?,
       specifications: json['specifications'] as String?,
@@ -437,6 +443,7 @@ class ProductModel extends Equatable {
               ?.where((e) => e is Map<String, dynamic>)
               .map((e) => AttributeModel.fromJson(e as Map<String, dynamic>))
               .toList(),
+      isGiftCard: _parseBoolField(json['is_gift_card']),
     );
   }
 
@@ -464,6 +471,19 @@ class ProductModel extends Equatable {
       // not JSON, just return as-is
       return raw.toString();
     }
+  }
+
+  /// Safely parse a field that may be bool, int, or string into int? (0/1)
+  static int? _parseBoolField(dynamic value) {
+    if (value == null) return null;
+    if (value is bool) return value ? 1 : 0;
+    if (value is num) return value.toInt();
+    if (value is String) {
+      if (value == 'true' || value == '1') return 1;
+      if (value == 'false' || value == '0') return 0;
+      return int.tryParse(value);
+    }
+    return null;
   }
 
   Map<String, dynamic> toJson() {
@@ -729,6 +749,7 @@ extension ProductModelX on ProductModel {
       tags: tags?.map((e) => e.toEntity()).toList(),
       reviews: reviews?.map((e) => e.toEntity()).toList(),
       attributes: attributes?.map((e) => e.toEntity()).toList(),
+      isGiftCard: isGiftCard == 1,
     );
   }
 }

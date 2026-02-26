@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod_clean_architecture/features/vouchers/domain/entities/voucher_entity.dart';
 import 'package:flutter_riverpod_clean_architecture/features/vouchers/presentation/providers/voucher_providers.dart';
 import 'package:flutter_riverpod_clean_architecture/features/currency/presentation/providers/currency_provider.dart';
+import 'package:flutter_riverpod_clean_architecture/features/wallet/presentation/providers/wallet_provider.dart';
 import 'package:intl/intl.dart';
 
 class GiftCardsScreen extends ConsumerStatefulWidget {
@@ -106,12 +107,23 @@ class _GiftCardsScreenState extends ConsumerState<GiftCardsScreen> {
       actionResult,
     ) {
       if (actionResult.success) {
-        _showSnackBar(actionResult.message);
+        // Build a message with the correct currency formatting
+        final formatCurrency = ref.read(currencyFormattingProvider);
+        final voucher = actionResult.voucher;
+        String msg;
+        if (voucher != null) {
+          msg =
+              '${formatCurrency(voucher.amount)} has been redeemed to your wallet!';
+        } else {
+          msg = 'Gift card redeemed successfully!';
+        }
+        _showSnackBar(msg);
         _codeController.clear();
         setState(() => _verifyResult = null);
-        // Refresh the voucher lists
+        // Refresh the voucher lists and wallet balance
         ref.invalidate(myVouchersProvider);
         ref.invalidate(redeemedVouchersProvider);
+        ref.read(walletProvider.notifier).refreshWallet();
       } else {
         _showSnackBar(actionResult.message, isError: true);
       }

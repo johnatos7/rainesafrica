@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod_clean_architecture/core/constants/app_constants.dart';
+import 'package:flutter_riverpod_clean_architecture/core/utils/responsive_utils.dart';
 import 'package:flutter_riverpod_clean_architecture/features/layby/presentation/widgets/layby_badge_widget.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/presentation/screens/product_details_screen.dart';
@@ -10,123 +11,39 @@ class ProductCard extends ConsumerWidget {
   final dynamic product;
   final VoidCallback? onTap;
 
-  const ProductCard({super.key, required this.product, this.onTap});
+  /// When true, the card fills available width (for use inside GridView).
+  /// When false (default), the card uses a fixed width for horizontal lists.
+  final bool isGridItem;
+
+  const ProductCard({
+    super.key,
+    required this.product,
+    this.onTap,
+    this.isGridItem = false,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cardWidth =
+        isGridItem ? null : ResponsiveUtils.productCardWidth(context);
+    final imageHeight = ResponsiveUtils.productCardImageHeight(context);
+
     return InkWell(
       onTap: onTap ?? () => _navigateToProductDetails(context),
       child: Container(
-        width: 200,
-        margin: const EdgeInsets.only(right: 8),
+        width: cardWidth,
+        margin: isGridItem ? null : const EdgeInsets.only(right: 8),
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
-          // borderRadius: BorderRadius.circular(8),
           border: Border.all(color: Theme.of(context).dividerColor, width: .5),
-          // boxShadow: const [
-          //   BoxShadow(
-          //     color: Color(0x11000000),
-          //     blurRadius: 4,
-          //     offset: Offset(0, 1),
-          //   ),
-          // ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Product Image + Badges
-            ClipRRect(
-              // borderRadius: const BorderRadius.only(
-              //   topLeft: Radius.circular(8),
-              //   topRight: Radius.circular(8),
-              // ),
-              child: SizedBox(
-                height: 160,
-                width: double.infinity,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.network(
-                      product.productThumbnail.imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder:
-                          (context, _, __) => Center(
-                            child: Icon(
-                              Icons.image,
-                              size: 40,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurface.withOpacity(0.4),
-                            ),
-                          ),
-                    ),
-                    // Sale Badges
-                    if (product.isOnSale) ...[
-                      Positioned(
-                        left: 8,
-                        top: 8,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildBadge('SALE', context),
-                            const SizedBox(height: 6),
-                            _buildBadge(
-                              '-${product.discountPercentage.toStringAsFixed(0)}% OFF',
-                              context,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    // Wishlist Button
-                    Positioned(
-                      right: 8,
-                      top: 8,
-                      child: WishlistButton(
-                        product: product,
-                        iconColor: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withOpacity(0.7),
-                        activeColor: Theme.of(context).colorScheme.primary,
-                        iconSize: 24,
-                      ),
-                    ),
-                    // Quick Add to Cart Button
-                    // Positioned(
-                    //   right: 8,
-                    //   bottom: 8,
-                    //   child: Container(
-                    //     decoration: BoxDecoration(
-                    //       color: Colors.blue,
-                    //       shape: BoxShape.circle,
-                    //       boxShadow: [
-                    //         BoxShadow(
-                    //           color: Colors.black.withOpacity(0.1),
-                    //           blurRadius: 4,
-                    //           offset: const Offset(0, 2),
-                    //         ),
-                    //       ],
-                    //     ),
-                    //     child: IconButton(
-                    //       onPressed: () => _showQuickAddToCart(context, ref),
-                    //       icon: const Icon(
-                    //         Icons.add_shopping_cart,
-                    //         size: 18,
-                    //         color: Colors.white,
-                    //       ),
-                    //       padding: const EdgeInsets.all(6),
-                    //       constraints: const BoxConstraints(
-                    //         minWidth: 32,
-                    //         minHeight: 32,
-                    //       ),
-                    //     ),
-                    //   ),
-                    // ),
-                  ],
-                ),
-              ),
-            ),
+            _buildImageSection(context, imageHeight),
 
+            // Product Details
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(8),
@@ -144,7 +61,7 @@ class ProductCard extends ConsumerWidget {
                         color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 6),
 
                     // Rating
                     Builder(
@@ -194,30 +111,30 @@ class ProductCard extends ConsumerWidget {
                         );
                       },
                     ),
-                    const SizedBox(height: 1),
+                    const SizedBox(height: 4),
 
                     // Price Row
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.end,
+                      spacing: 6,
                       children: [
                         Text(
                           ref.watch(currencyFormattingProvider)(
                             product.effectivePrice,
                           ),
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 14,
                             fontWeight: FontWeight.bold,
                             color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
-                        const SizedBox(width: 6),
                         if (product.isOnSale)
                           Text(
                             ref.watch(currencyFormattingProvider)(
                               product.price,
                             ),
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: 11,
                               color: Theme.of(
                                 context,
                               ).colorScheme.onSurface.withOpacity(0.6),
@@ -226,6 +143,23 @@ class ProductCard extends ConsumerWidget {
                           ),
                       ],
                     ),
+                    // Shipping / Delivery info
+                    if (product.estimatedDeliveryText != null &&
+                        (product.estimatedDeliveryText as String).isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          product.estimatedDeliveryText as String,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Color(0xFF2E7D32),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+
                     // Layby badge
                     LaybyBadgeWidget(
                       productPrice: product.effectivePrice,
@@ -237,6 +171,118 @@ class ProductCard extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Builds the image section. In grid mode, uses Expanded so the image
+  /// fills the available flex space. In list mode, uses a fixed height.
+  Widget _buildImageSection(BuildContext context, double imageHeight) {
+    final imageStack = Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.network(
+          product.productThumbnail.imageUrl,
+          fit: BoxFit.cover,
+          errorBuilder:
+              (context, _, __) => Center(
+                child: Icon(
+                  Icons.image,
+                  size: 40,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.4),
+                ),
+              ),
+        ),
+        // Sale Badges
+        if (product.isOnSale) ...[
+          Positioned(
+            left: 8,
+            top: 8,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildBadge('SALE', context),
+                const SizedBox(height: 6),
+                _buildBadge(
+                  '-${product.discountPercentage.toStringAsFixed(0)}% OFF',
+                  context,
+                ),
+              ],
+            ),
+          ),
+        ],
+        // Wishlist Button
+        Positioned(
+          right: 8,
+          top: 8,
+          child: WishlistButton(
+            product: product,
+            iconColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            activeColor: Theme.of(context).colorScheme.primary,
+            iconSize: 24,
+          ),
+        ),
+        // Image count badge (Takealot-style)
+        Builder(
+          builder: (context) {
+            int imageCount = 0;
+            if (product.productThumbnail != null) imageCount++;
+            imageCount += (product.productGalleries.length as int);
+            if (imageCount > 1) {
+              return Positioned(
+                left: 8,
+                bottom: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.camera_alt_outlined,
+                        size: 14,
+                        color: Color(0xFF555555),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$imageCount',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF555555),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+            return const SizedBox.shrink();
+          },
+        ),
+      ],
+    );
+
+    return ClipRRect(
+      child: SizedBox(
+        height: imageHeight,
+        width: double.infinity,
+        child: imageStack,
       ),
     );
   }

@@ -96,8 +96,8 @@ class ProductRepositoryImpl implements ProductRepository {
       return Left(ServerFailure(message: e.message));
     } on NetworkException {
       return const Left(NetworkFailure());
-    } on Exception {
-      return const Left(ServerFailure());
+    } on Exception catch (e) {
+      return Left(ServerFailure(message: e.toString()));
     }
   }
 

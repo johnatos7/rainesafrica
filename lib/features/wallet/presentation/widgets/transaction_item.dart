@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod_clean_architecture/features/wallet/domain/entities/wallet_entity.dart';
+import 'package:flutter_riverpod_clean_architecture/features/currency/presentation/providers/currency_provider.dart';
 import 'package:intl/intl.dart';
 
-class TransactionItem extends StatelessWidget {
+class TransactionItem extends ConsumerWidget {
   final WalletTransactionEntity transaction;
 
   const TransactionItem({super.key, required this.transaction});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final formatCurrency = ref.watch(currencyFormattingProvider);
 
     final isCredit = transaction.type.toLowerCase() == 'credit';
     final amountColor = isCredit ? Colors.green : Colors.red;
@@ -82,12 +85,12 @@ class TransactionItem extends StatelessWidget {
             ),
           ),
 
-          // Amount
+          // Amount — uses currency formatter
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '$amountPrefix \$ ${transaction.amount.toStringAsFixed(2)}',
+                '$amountPrefix ${formatCurrency(transaction.amount)}',
                 style: theme.textTheme.bodyLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: amountColor,

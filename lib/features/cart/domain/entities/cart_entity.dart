@@ -76,6 +76,14 @@ class CartEntity extends Equatable {
       items.fold(0.0, (sum, item) => sum + item.totalPrice);
   double get calculatedTotal => calculatedSubtotal + tax + shipping - discount;
 
+  /// Returns true if any item in the cart is a gift card product
+  /// Checks both the API flag and product name as fallback
+  bool get containsGiftCard => items.any(
+    (item) =>
+        item.product?.isGiftCard == true ||
+        (item.product?.name.toLowerCase().contains('gift card') ?? false),
+  );
+
   // Calculate total expedited shipping fee
   double get calculatedExpeditedShippingFee {
     double totalFee = 0.0;

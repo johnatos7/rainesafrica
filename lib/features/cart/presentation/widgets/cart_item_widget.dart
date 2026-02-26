@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod_clean_architecture/core/utils/responsive_utils.dart';
 import 'package:flutter_riverpod_clean_architecture/features/cart/domain/entities/cart_entity.dart';
 import 'package:flutter_riverpod_clean_architecture/features/cart/providers/cart_providers.dart';
 import 'package:flutter_riverpod_clean_architecture/features/currency/presentation/providers/currency_provider.dart';
@@ -65,8 +66,8 @@ class _CartItemWidgetState extends ConsumerState<CartItemWidget> {
             children: [
               // Product Image
               Container(
-                width: 80,
-                height: 80,
+                width: ResponsiveUtils.cartItemImageSize(context),
+                height: ResponsiveUtils.cartItemImageSize(context),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
                   color: Theme.of(context).colorScheme.surfaceVariant,
@@ -135,7 +136,8 @@ class _CartItemWidgetState extends ConsumerState<CartItemWidget> {
                     const SizedBox(height: 4),
 
                     // Variation Display
-                    if (widget.item.variationDisplayName != null || widget.item.selectedVariation != null) ...[
+                    if (widget.item.variationDisplayName != null ||
+                        widget.item.selectedVariation != null) ...[
                       Row(
                         children: [
                           Container(
@@ -149,7 +151,9 @@ class _CartItemWidgetState extends ConsumerState<CartItemWidget> {
                               border: Border.all(color: Colors.blue[200]!),
                             ),
                             child: Text(
-                              widget.item.variationDisplayName ?? widget.item.selectedVariation ?? '',
+                              widget.item.variationDisplayName ??
+                                  widget.item.selectedVariation ??
+                                  '',
                               style: TextStyle(
                                 fontSize: 10,
                                 color: Colors.blue[700],
@@ -446,7 +450,9 @@ class _CartItemWidgetState extends ConsumerState<CartItemWidget> {
 
   Widget _buildViewMoreLink() {
     final product = widget.item.product;
-    if (product == null || product.categories == null || product.categories!.isEmpty) {
+    if (product == null ||
+        product.categories == null ||
+        product.categories!.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -585,8 +591,8 @@ class _CartItemWidgetState extends ConsumerState<CartItemWidget> {
             children: [
               // Product Image
               Container(
-                width: 80,
-                height: 80,
+                width: ResponsiveUtils.cartItemImageSize(context),
+                height: ResponsiveUtils.cartItemImageSize(context),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
                   color: Theme.of(context).colorScheme.surfaceVariant,
@@ -666,7 +672,8 @@ class _CartItemWidgetState extends ConsumerState<CartItemWidget> {
                             color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
-                        if (widget.item.variationDisplayName != null || widget.item.selectedVariation != null) ...[
+                        if (widget.item.variationDisplayName != null ||
+                            widget.item.selectedVariation != null) ...[
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -679,7 +686,9 @@ class _CartItemWidgetState extends ConsumerState<CartItemWidget> {
                               border: Border.all(color: Colors.blue[200]!),
                             ),
                             child: Text(
-                              widget.item.variationDisplayName ?? widget.item.selectedVariation ?? '',
+                              widget.item.variationDisplayName ??
+                                  widget.item.selectedVariation ??
+                                  '',
                               style: TextStyle(
                                 fontSize: 10,
                                 color: Colors.blue[700],
@@ -860,7 +869,12 @@ class _CartItemWidgetState extends ConsumerState<CartItemWidget> {
                               true)
                           ? CachedNetworkImage(
                             imageUrl:
-                                widget.item.product!.productThumbnail?.imageUrl ?? '',
+                                widget
+                                    .item
+                                    .product!
+                                    .productThumbnail
+                                    ?.imageUrl ??
+                                '',
                             fit: BoxFit.cover,
                             placeholder:
                                 (context, url) => Container(
@@ -950,7 +964,8 @@ class _CartItemWidgetState extends ConsumerState<CartItemWidget> {
                             color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
-                        if (widget.item.variationDisplayName != null || widget.item.selectedVariation != null) ...[
+                        if (widget.item.variationDisplayName != null ||
+                            widget.item.selectedVariation != null) ...[
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -963,7 +978,9 @@ class _CartItemWidgetState extends ConsumerState<CartItemWidget> {
                               border: Border.all(color: Colors.blue[200]!),
                             ),
                             child: Text(
-                              widget.item.variationDisplayName ?? widget.item.selectedVariation ?? '',
+                              widget.item.variationDisplayName ??
+                                  widget.item.selectedVariation ??
+                                  '',
                               style: TextStyle(
                                 fontSize: 10,
                                 color: Colors.blue[700],

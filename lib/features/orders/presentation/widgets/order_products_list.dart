@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod_clean_architecture/features/orders/domain/entities/order_product_entity.dart';
 import 'package:flutter_riverpod_clean_architecture/features/orders/presentation/widgets/product_action_buttons.dart';
 
@@ -260,33 +261,36 @@ class OrderProductsList extends StatelessWidget {
               ),
             ],
           ),
-          // ETA row
-          if (product.pivot.eta != null &&
-              product.pivot.eta!.trim().isNotEmpty) ...[
-            const SizedBox(height: 8),
+          // Per-item Status & ETA row
+          if ((product.pivot.itemStatus != null &&
+                  product.pivot.itemStatus!.trim().isNotEmpty) ||
+              (product.pivot.eta != null &&
+                  product.pivot.eta!.trim().isNotEmpty)) ...[
+            const SizedBox(height: 10),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: colors.primary.withOpacity(0.06),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: colors.primary.withOpacity(0.15)),
+                color: colors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: colors.outline.withOpacity(0.15)),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.local_shipping_outlined,
-                    size: 16,
-                    color: colors.primary,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'ETA: ${product.pivot.eta}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colors.primary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                    ),
-                  ),
+                  // Status row
+                  if (product.pivot.itemStatus != null &&
+                      product.pivot.itemStatus!.trim().isNotEmpty) ...[
+                    _buildStatusRow(product.pivot.itemStatus!, colors, theme),
+                  ],
+                  // ETA row
+                  if (product.pivot.eta != null &&
+                      product.pivot.eta!.trim().isNotEmpty) ...[
+                    if (product.pivot.itemStatus != null &&
+                        product.pivot.itemStatus!.trim().isNotEmpty)
+                      const SizedBox(height: 8),
+                    _buildEtaRow(product.pivot.eta!, colors, theme),
+                  ],
                 ],
               ),
             ),
@@ -302,6 +306,122 @@ class OrderProductsList extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _buildStatusRow(String status, ColorScheme colors, ThemeData theme) {
+    final statusLower = status.toLowerCase().trim();
+    Color statusColor;
+    IconData statusIcon;
+
+    if (statusLower.contains('deliver') || statusLower.contains('collected')) {
+      statusColor = Colors.green;
+      statusIcon = Icons.check_circle_outline;
+    } else if (statusLower.contains('transit') ||
+        statusLower.contains('shipped') ||
+        statusLower.contains('dispatched')) {
+      statusColor = Colors.blue;
+      statusIcon = Icons.local_shipping_outlined;
+    } else if (statusLower.contains('ready') ||
+        statusLower.contains('collection')) {
+      statusColor = Colors.orange;
+      statusIcon = Icons.store_outlined;
+    } else if (statusLower.contains('cancel') ||
+        statusLower.contains('refund')) {
+      statusColor = Colors.red;
+      statusIcon = Icons.cancel_outlined;
+    } else if (statusLower.contains('packing') ||
+        statusLower.contains('warehouse')) {
+      statusColor = Colors.teal;
+      statusIcon = Icons.inventory_2_outlined;
+    } else {
+      statusColor = Colors.indigo;
+      statusIcon = Icons.hourglass_top_outlined;
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(statusIcon, size: 16, color: statusColor),
+        const SizedBox(width: 6),
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontSize: 12,
+                color: colors.onSurface,
+              ),
+              children: [
+                const TextSpan(
+                  text: 'Status: ',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                TextSpan(
+                  text: _titleCase(status),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: statusColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEtaRow(String eta, ColorScheme colors, ThemeData theme) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.calendar_today_outlined, size: 16, color: colors.primary),
+        const SizedBox(width: 6),
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontSize: 12,
+                color: colors.onSurface,
+              ),
+              children: [
+                const TextSpan(
+                  text: 'Est. Date of Arrival: ',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                TextSpan(
+                  text: _formatEtaDate(eta),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: colors.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatEtaDate(String raw) {
+    try {
+      final dt = DateTime.parse(raw);
+      return DateFormat('EEEE, dd MMMM yyyy').format(dt);
+    } catch (_) {
+      return raw; // fallback to raw string if parsing fails
+    }
+  }
+
+  String _titleCase(String text) {
+    return text
+        .split(' ')
+        .map(
+          (w) =>
+              w.isNotEmpty
+                  ? '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}'
+                  : '',
+        )
+        .join(' ');
   }
 
   String _getCurrencySymbol(OrderProductEntity product) {

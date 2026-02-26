@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:flutter_riverpod_clean_architecture/core/utils/responsive_utils.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/domain/entities/attribute_entity.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/domain/entities/product_entity.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/providers/product_providers.dart';
@@ -36,7 +37,7 @@ class _HtmlContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final parsed = _parseHtml(html);
+    final parsed = _parseHtml(html, context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -52,7 +53,9 @@ class _HtmlContent extends StatelessWidget {
     );
   }
 
-  List<Widget> _parseHtml(String htmlString) {
+  List<Widget> _parseHtml(String htmlString, BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final textColor = colors.onSurface;
     final document = html_parser.parse(htmlString);
     final widgets = <Widget>[];
 
@@ -63,7 +66,7 @@ class _HtmlContent extends StatelessWidget {
             widgets.add(
               Text(
                 node.text,
-                style: const TextStyle(fontSize: 14, height: 1.6),
+                style: TextStyle(fontSize: 14, height: 1.6, color: textColor),
               ),
             );
             break;
@@ -72,10 +75,11 @@ class _HtmlContent extends StatelessWidget {
             widgets.add(
               Text(
                 node.text,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                   height: 1.6,
+                  color: textColor,
                 ),
               ),
             );
@@ -85,10 +89,11 @@ class _HtmlContent extends StatelessWidget {
             widgets.add(
               Text(
                 node.text,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontStyle: FontStyle.italic,
                   height: 1.6,
+                  color: textColor,
                 ),
               ),
             );
@@ -106,7 +111,11 @@ class _HtmlContent extends StatelessWidget {
                     Expanded(
                       child: Text(
                         li.text,
-                        style: const TextStyle(fontSize: 14, height: 1.6),
+                        style: TextStyle(
+                          fontSize: 14,
+                          height: 1.6,
+                          color: textColor,
+                        ),
                       ),
                     ),
                   ],
@@ -125,7 +134,11 @@ class _HtmlContent extends StatelessWidget {
                     Expanded(
                       child: Text(
                         li.text,
-                        style: const TextStyle(fontSize: 14, height: 1.6),
+                        style: TextStyle(
+                          fontSize: 14,
+                          height: 1.6,
+                          color: textColor,
+                        ),
                       ),
                     ),
                   ],
@@ -139,27 +152,73 @@ class _HtmlContent extends StatelessWidget {
             widgets.add(
               Text(
                 node.text,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   height: 1.6,
+                  color: textColor,
                 ),
               ),
             );
             break;
-          case 'table':
-            widgets.add(_buildTable(node));
+          case 'img':
+            final src = node.attributes['src'] ?? '';
+            if (src.isNotEmpty) {
+              widgets.add(
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    src,
+                    width: double.infinity,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
+                ),
+              );
+            }
             break;
-          default:
+          case 'figure':
             for (final child in node.nodes) {
               processNode(child);
+            }
+            break;
+          case 'table':
+            widgets.add(_buildTable(node, context));
+            break;
+          case 'div':
+          case 'span':
+          case 'section':
+          case 'article':
+          case 'header':
+          case 'footer':
+          case 'main':
+          case 'aside':
+          case 'nav':
+          case 'a':
+            for (final child in node.nodes) {
+              processNode(child);
+            }
+            break;
+          default:
+            // For any unrecognized element, try to extract text
+            final text = node.text.trim();
+            if (text.isNotEmpty) {
+              widgets.add(
+                Text(
+                  text,
+                  style: TextStyle(fontSize: 14, height: 1.6, color: textColor),
+                ),
+              );
             }
         }
       } else if (node is html_dom.Text) {
         final text = node.text.trim();
         if (text.isNotEmpty) {
           widgets.add(
-            Text(text, style: const TextStyle(fontSize: 14, height: 1.6)),
+            Text(
+              text,
+              style: TextStyle(fontSize: 14, height: 1.6, color: textColor),
+            ),
           );
         }
       }
@@ -172,74 +231,123 @@ class _HtmlContent extends StatelessWidget {
     return widgets;
   }
 
-  Widget _buildTable(html_dom.Element tableNode) {
+  Widget _buildTable(html_dom.Element tableNode, BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     final rows = <TableRow>[];
 
-    // Collect all rows from thead and tbody
+    // Collect all rows from thead, tbody, tfoot, or direct tr children
     final allTrs = <html_dom.Element>[];
     for (final section in tableNode.children) {
-      if (section.localName == 'thead' || section.localName == 'tbody') {
+      if (section.localName == 'thead' ||
+          section.localName == 'tbody' ||
+          section.localName == 'tfoot') {
         allTrs.addAll(section.children.where((c) => c.localName == 'tr'));
       } else if (section.localName == 'tr') {
         allTrs.add(section);
       }
     }
 
+    if (allTrs.isEmpty) return const SizedBox.shrink();
+
+    // Determine maximum column count across all rows
+    int maxCols = 0;
+    for (final tr in allTrs) {
+      final cellCount =
+          tr.children
+              .where((c) => c.localName == 'th' || c.localName == 'td')
+              .length;
+      if (cellCount > maxCols) maxCols = cellCount;
+    }
+
+    if (maxCols == 0) return const SizedBox.shrink();
+
     for (int i = 0; i < allTrs.length; i++) {
       final tr = allTrs[i];
-      final cells = tr.children.where(
-        (c) => c.localName == 'th' || c.localName == 'td',
-      );
+      final cells =
+          tr.children
+              .where((c) => c.localName == 'th' || c.localName == 'td')
+              .toList();
 
       final isHeader = cells.any((c) => c.localName == 'th');
       final bgColor =
           isHeader
-              ? const Color(0xFF11519B)
-              : (i % 2 == 0 ? const Color(0xFFF5F5F5) : Colors.white);
+              ? colors.primary
+              : (i % 2 == 0 ? colors.surfaceContainerLow : colors.surface);
+
+      // Pad cells to match maxCols if needed
+      final paddedCells = <Widget>[];
+      for (int j = 0; j < maxCols; j++) {
+        if (j < cells.length) {
+          final cell = cells[j];
+          final isBold = isHeader || cell.querySelector('strong') != null;
+          paddedCells.add(
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Text(
+                cell.text.trim(),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isBold ? FontWeight.w600 : FontWeight.normal,
+                  color: isHeader ? colors.onPrimary : colors.onSurface,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          );
+        } else {
+          // Empty cell for padding
+          paddedCells.add(const SizedBox.shrink());
+        }
+      }
 
       rows.add(
         TableRow(
           decoration: BoxDecoration(color: bgColor),
-          children:
-              cells.map((cell) {
-                final isBold = isHeader || cell.querySelector('strong') != null;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  child: Text(
-                    cell.text.trim(),
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: isBold ? FontWeight.w600 : FontWeight.normal,
-                      color: isHeader ? Colors.white : const Color(0xFF333333),
-                      height: 1.4,
-                    ),
-                  ),
-                );
-              }).toList(),
+          children: paddedCells,
         ),
       );
     }
 
     if (rows.isEmpty) return const SizedBox.shrink();
 
-    return ClipRRect(
+    // Generate dynamic column widths based on column count
+    final columnWidths = <int, TableColumnWidth>{};
+    for (int i = 0; i < maxCols; i++) {
+      columnWidths[i] = const FlexColumnWidth(1);
+    }
+
+    final table = ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: Table(
-        border: TableBorder.all(color: const Color(0xFFE0E0E0), width: 0.5),
-        columnWidths: const {0: FlexColumnWidth(1), 1: FlexColumnWidth(1.5)},
+        border: TableBorder.all(
+          color: colors.outline.withOpacity(0.2),
+          width: 0.5,
+        ),
+        columnWidths: columnWidths,
+        defaultVerticalAlignment: TableCellVerticalAlignment.middle,
         children: rows,
       ),
     );
+
+    // Wrap in horizontal scroll for wide tables (3+ columns)
+    if (maxCols > 2) {
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 500),
+          child: table,
+        ),
+      );
+    }
+
+    return table;
   }
 }
 
 class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
   int _currentImageIndex = 0;
   bool _isDescriptionExpanded = false;
-  int _descriptionTabIndex = 0; // 0 = Description, 1 = Specifications
+  bool _isSpecsExpanded = false;
   List<ProductVariationEntity> _selectedVariations = []; // Changed to array
   ProductEntity? _fullProduct;
   bool _isLoading = true;
@@ -452,6 +560,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
 
   Widget _buildProductImageSection(ProductEntity product) {
     final images = _getProductImages(product);
+    final imageHeight = ResponsiveUtils.productDetailImageHeight(context);
 
     return Column(
       children: [
@@ -460,7 +569,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
           itemBuilder: (context, index, realIndex) {
             return Container(
               width: double.infinity,
-              height: 300,
+              height: imageHeight,
               margin: const EdgeInsets.symmetric(horizontal: 16),
               child: CachedNetworkImage(
                 imageUrl: images[index],
@@ -491,7 +600,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
             );
           },
           options: CarouselOptions(
-            height: 300,
+            height: imageHeight,
             viewportFraction: 1.0,
             enableInfiniteScroll: images.length > 1,
             onPageChanged: (index, reason) {
@@ -716,9 +825,18 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Product Short Description
+            // Short Description (rendered as HTML)
             if (product.shortDescription != null &&
                 product.shortDescription!.isNotEmpty) ...[
+              Text(
+                'Short Description',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 8),
               _buildExpandableDescription(product),
               const SizedBox(height: 24),
             ],
@@ -1111,47 +1229,73 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
   }
 
   Widget _buildExpandableDescription(ProductEntity product) {
-    const int maxLength = 150;
     final shortDescription = product.shortDescription;
-
     if (shortDescription == null || shortDescription.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    final shouldTruncate = shortDescription.length > maxLength;
+    // Convert plain text \r\n to <br> for HTML rendering
+    final htmlContent = shortDescription
+        .replaceAll('\r\n', '<br>')
+        .replaceAll('\n', '<br>');
+
+    final colors = Theme.of(context).colorScheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          _isDescriptionExpanded || !shouldTruncate
-              ? shortDescription
-              : '${shortDescription.substring(0, maxLength)}...',
-          style: TextStyle(
-            fontSize: 14,
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-            height: 1.5,
+        AnimatedCrossFade(
+          firstChild: ClipRect(
+            child: SizedBox(
+              height: 120,
+              child: _HtmlContent(html: htmlContent),
+            ),
           ),
+          secondChild: _HtmlContent(html: htmlContent),
+          crossFadeState:
+              _isDescriptionExpanded
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 300),
         ),
-        if (shouldTruncate) ...[
-          const SizedBox(height: 8),
-          GestureDetector(
-            onTap: () {
-              setState(() {
-                _isDescriptionExpanded = !_isDescriptionExpanded;
-              });
-            },
-            child: Text(
-              _isDescriptionExpanded ? 'See Less' : 'See More',
-              style: TextStyle(
-                fontSize: 14,
-                color: Theme.of(context).colorScheme.primary,
-                fontWeight: FontWeight.w600,
-                decoration: TextDecoration.underline,
+        if (!_isDescriptionExpanded)
+          Container(
+            height: 30,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Theme.of(context).scaffoldBackgroundColor.withOpacity(0),
+                  Theme.of(context).scaffoldBackgroundColor,
+                ],
               ),
             ),
           ),
-        ],
+        const SizedBox(height: 8),
+        Center(
+          child: OutlinedButton(
+            onPressed:
+                () => setState(
+                  () => _isDescriptionExpanded = !_isDescriptionExpanded,
+                ),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: colors.outline.withOpacity(0.3)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 10),
+            ),
+            child: Text(
+              _isDescriptionExpanded ? 'Show Less' : 'Show More',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: colors.onSurface.withOpacity(0.7),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -1186,40 +1330,80 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
               if (product.weight != null)
                 _buildInfoRow('Weight', '${product.weight} kg'),
               if (product.unit != null) _buildInfoRow('Unit', product.unit!),
-              if (product.estimatedDeliveryText != null)
-                _buildInfoRow('Delivery Info', product.estimatedDeliveryText!),
             ],
           ),
         ),
 
-        // Delivery, Warranty & Return Policy badges
+        // Delivery, Warranty & Return Policy badges (Takealot-style)
         if (product.estimatedDeliveryText != null ||
             product.warranty != null ||
             product.returnPolicyText != null) ...[
           const SizedBox(height: 12),
-          if (product.estimatedDeliveryText != null)
-            _buildPolicyBadge(
-              icon: Icons.local_shipping,
-              text: product.estimatedDeliveryText!,
-              backgroundColor: const Color(0xFF2E7D32),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Theme.of(context).dividerColor.withOpacity(0.3),
+              ),
             ),
-          if (product.estimatedDeliveryText != null &&
-              (product.warranty != null || product.returnPolicyText != null))
-            const SizedBox(height: 8),
-          if (product.warranty != null)
-            _buildPolicyBadge(
-              icon: Icons.verified_user,
-              text: product.warranty!,
-              backgroundColor: const Color(0xFF1565C0),
+            child: Column(
+              children: [
+                // Delivery badge
+                if (product.estimatedDeliveryText != null) ...[
+                  _buildPolicyRow(
+                    icon: Icons.local_shipping_outlined,
+                    text: product.estimatedDeliveryText!,
+                    onInfoTap:
+                        product.estimatedDeliveryText!.toLowerCase().contains(
+                              'back order',
+                            )
+                            ? () => _showBackOrderNotice(context)
+                            : null,
+                  ),
+                ],
+                // Free shipping badge
+                if (product.isFreeShipping == true) ...[
+                  if (product.estimatedDeliveryText != null)
+                    _buildDashedDivider(),
+                  _buildPolicyRow(
+                    icon: Icons.local_shipping,
+                    text: 'Free Delivery Available.',
+                  ),
+                ],
+                // Returns badge
+                if (product.returnPolicyText != null ||
+                    product.isReturn == true) ...[
+                  if (product.estimatedDeliveryText != null ||
+                      product.isFreeShipping == true)
+                    _buildDashedDivider(),
+                  _buildPolicyRow(
+                    icon: Icons.swap_horiz,
+                    text:
+                        product.returnPolicyText ??
+                        'Hassle-Free Exchanges & Returns for 30 Days.',
+                    onInfoTap: () => _showReturnPolicy(context),
+                  ),
+                ],
+                // Warranty badge
+                if (product.warranty != null) ...[
+                  if (product.estimatedDeliveryText != null ||
+                      product.isFreeShipping == true ||
+                      product.returnPolicyText != null ||
+                      product.isReturn == true)
+                    _buildDashedDivider(),
+                  _buildPolicyRow(
+                    icon: Icons.calendar_today,
+                    text: product.warranty!,
+                    onInfoTap:
+                        () => _showWarrantyInfo(context, product.warranty!),
+                  ),
+                ],
+              ],
             ),
-          if (product.warranty != null && product.returnPolicyText != null)
-            const SizedBox(height: 8),
-          if (product.returnPolicyText != null)
-            _buildPolicyBadge(
-              icon: Icons.assignment_return,
-              text: product.returnPolicyText!,
-              backgroundColor: const Color(0xFFD32F2F),
-            ),
+          ),
         ],
 
         const SizedBox(height: 24),
@@ -1247,143 +1431,108 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Section title
-          Text(
-            'Product Information',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: colors.onSurface,
-            ),
-          ),
-
-          // Tab bar
-          if (hasDescription && hasSpecifications) ...[
-            const SizedBox(height: 12),
-            Container(
-              decoration: BoxDecoration(
-                color: colors.surfaceContainerHighest.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(8),
+          // ─── Product Information (full description) ───
+          if (hasDescription) ...[
+            Text(
+              'Product Information',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: colors.onSurface,
               ),
-              padding: const EdgeInsets.all(3),
-              child: Row(
-                children: [
-                  _buildDescriptionTab('Description', 0, colors),
-                  const SizedBox(width: 4),
-                  _buildDescriptionTab('Specifications', 1, colors),
-                ],
+            ),
+            const SizedBox(height: 12),
+            _HtmlContent(html: detailedDescription!),
+          ],
+
+          // ─── Product Specifications (standalone) ───
+          if (hasSpecifications) ...[
+            if (hasDescription) const SizedBox(height: 24),
+            Text(
+              'Product Specifications',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: colors.onSurface,
+              ),
+            ),
+            const SizedBox(height: 12),
+            AnimatedCrossFade(
+              firstChild: ClipRect(
+                child: SizedBox(
+                  height: 200,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Theme.of(context).dividerColor),
+                    ),
+                    child: _HtmlContent(html: specifications!),
+                  ),
+                ),
+              ),
+              secondChild: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Theme.of(context).dividerColor),
+                ),
+                child: _HtmlContent(html: specifications!),
+              ),
+              crossFadeState:
+                  _isSpecsExpanded
+                      ? CrossFadeState.showSecond
+                      : CrossFadeState.showFirst,
+              duration: const Duration(milliseconds: 300),
+            ),
+            if (!_isSpecsExpanded)
+              Container(
+                height: 40,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Theme.of(context).scaffoldBackgroundColor.withOpacity(0),
+                      Theme.of(context).scaffoldBackgroundColor,
+                    ],
+                  ),
+                ),
+              ),
+            const SizedBox(height: 8),
+            Center(
+              child: OutlinedButton(
+                onPressed:
+                    () => setState(() => _isSpecsExpanded = !_isSpecsExpanded),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: colors.outline.withOpacity(0.3)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 10,
+                  ),
+                ),
+                child: Text(
+                  _isSpecsExpanded ? 'Show Less' : 'Show More Specifications',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: colors.onSurface.withOpacity(0.7),
+                  ),
+                ),
               ),
             ),
           ],
 
-          const SizedBox(height: 12),
-
-          // Tab content
-          if (_descriptionTabIndex == 0 && hasDescription)
-            _buildDescriptionContent(detailedDescription!, colors)
-          else if (hasSpecifications)
-            _buildSpecificationsContent(specifications!, colors),
-
           const SizedBox(height: 100), // Extra space for bottom bar
         ],
       ),
-    );
-  }
-
-  Widget _buildDescriptionTab(String label, int index, ColorScheme colors) {
-    final isActive = _descriptionTabIndex == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _descriptionTabIndex = index),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: isActive ? colors.primary : Colors.transparent,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color:
-                    isActive ? Colors.white : colors.onSurface.withOpacity(0.6),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDescriptionContent(String html, ColorScheme colors) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        AnimatedCrossFade(
-          firstChild: ClipRect(
-            child: SizedBox(height: 150, child: _HtmlContent(html: html)),
-          ),
-          secondChild: _HtmlContent(html: html),
-          crossFadeState:
-              _isDescriptionExpanded
-                  ? CrossFadeState.showSecond
-                  : CrossFadeState.showFirst,
-          duration: const Duration(milliseconds: 300),
-        ),
-        if (!_isDescriptionExpanded)
-          Container(
-            height: 40,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Theme.of(context).scaffoldBackgroundColor.withOpacity(0),
-                  Theme.of(context).scaffoldBackgroundColor,
-                ],
-              ),
-            ),
-          ),
-        const SizedBox(height: 8),
-        Center(
-          child: OutlinedButton(
-            onPressed:
-                () => setState(() {
-                  _isDescriptionExpanded = !_isDescriptionExpanded;
-                }),
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: colors.outline.withOpacity(0.3)),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 10),
-            ),
-            child: Text(
-              _isDescriptionExpanded ? 'Show Less' : 'Show More Description',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: colors.onSurface.withOpacity(0.7),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSpecificationsContent(String html, ColorScheme colors) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Theme.of(context).dividerColor),
-      ),
-      child: _HtmlContent(html: html),
     );
   }
 
@@ -1419,33 +1568,77 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
     );
   }
 
-  Widget _buildPolicyBadge({
+  Widget _buildPolicyRow({
     required IconData icon,
     required String text,
-    required Color backgroundColor,
+    VoidCallback? onInfoTap,
   }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(8),
-      ),
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
-          Icon(icon, color: Colors.white, size: 20),
-          const SizedBox(width: 10),
+          Icon(icon, color: colors.onSurface.withOpacity(0.5), size: 24),
+          const SizedBox(width: 14),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+              style: TextStyle(
+                color: colors.onSurface.withOpacity(0.8),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                height: 1.3,
               ),
             ),
           ),
+          if (onInfoTap != null) ...[
+            const SizedBox(width: 10),
+            GestureDetector(
+              onTap: onInfoTap,
+              child: Container(
+                width: 28,
+                height: 28,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF4CAF50),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.info_outline,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildDashedDivider() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final dashWidth = 5.0;
+          final dashSpace = 4.0;
+          final dashCount =
+              (constraints.maxWidth / (dashWidth + dashSpace)).floor();
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: List.generate(dashCount, (_) {
+              return SizedBox(
+                width: dashWidth,
+                height: 1,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).dividerColor.withOpacity(0.4),
+                  ),
+                ),
+              );
+            }),
+          );
+        },
       ),
     );
   }
@@ -1634,6 +1827,188 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
   }
 
   /// Open Terms & Conditions in browser
+  void _showBackOrderNotice(BuildContext context) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.amber.shade700,
+                  size: 28,
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'Back Order Notice',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            content: const Text(
+              'Products on back order may experience prolonged delays because suppliers might need to order from their own suppliers, which may delay delivery up to 3 weeks. Availability cannot be guaranteed as we rely solely on data from suppliers.',
+              style: TextStyle(fontSize: 14, height: 1.5),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Got it'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _showWarrantyInfo(BuildContext context, String warrantyText) {
+    final isNonReturnable =
+        warrantyText.toLowerCase().contains('non-returnable') ||
+        warrantyText.toLowerCase().contains('non returnable');
+
+    final String dialogTitle;
+    final String dialogContent;
+    final IconData dialogIcon;
+    final Color dialogIconColor;
+
+    if (isNonReturnable) {
+      dialogTitle = 'Non-Returnable';
+      dialogContent =
+          'This product is non-returnable. Once purchased, it cannot be returned or exchanged. Please review the product details carefully before purchasing.';
+      dialogIcon = Icons.block;
+      dialogIconColor = const Color(0xFFD32F2F);
+    } else {
+      // Extract month count from warranty text (e.g. "6 Months Warranty" -> "6-Months")
+      final monthMatch = RegExp(r'(\d+)').firstMatch(warrantyText);
+      final months = monthMatch?.group(1) ?? '6';
+      dialogTitle = '$months-Months Limited Warranty';
+      dialogContent =
+          'Limited warranty, with certain exclusions, as defined by the manufacturer. Please consult the manufacturer for further details.';
+      dialogIcon = Icons.verified_user;
+      dialogIconColor = const Color(0xFF1565C0);
+    }
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Icon(dialogIcon, color: dialogIconColor, size: 28),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    dialogTitle,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              dialogContent,
+              style: const TextStyle(fontSize: 14, height: 1.5),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Got it'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _showReturnPolicy(BuildContext context) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Icon(
+                  Icons.swap_horiz,
+                  color: const Color(0xFF4CAF50),
+                  size: 28,
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'Return Policy',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Goods may be returned in terms of the Consumer Protection Act, Act 68 of 2008.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    '\u2022 You may cancel any online sale within 5 days after receipt of goods for a full refund.\n\n'
+                    '\u2022 Defective goods may be returned within 6 months of delivery for repair, replacement, or refund.\n\n'
+                    '\u2022 A handling fee of up to 20% may apply if goods/packaging are not in original condition.\n\n'
+                    '\u2022 Non-returnable items include: personalised products, assembled flat-pack furniture, licensed software, pre-paid cards, intimate products, toiletries, and foodstuff.\n\n'
+                    '\u2022 Raines Africa reserves the right to inspect goods before approving a return.',
+                    style: TextStyle(fontSize: 13, height: 1.6),
+                  ),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        _openReturnPolicyPage();
+                      },
+                      child: const Text(
+                        'View Full Return Policy \u2192',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Future<void> _openReturnPolicyPage() async {
+    try {
+      const url = 'https://raines.africa/en/pages/return-policy';
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {}
+  }
+
   Future<void> _openTermsAndConditions() async {
     try {
       const termsUrl = 'https://raines.africa/en/pages/terms-and-conditions';

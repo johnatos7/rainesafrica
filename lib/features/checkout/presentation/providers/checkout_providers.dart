@@ -201,10 +201,13 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
           double.tryParse(settings?.walletPoints.pointCurrencyRatio ?? '') ??
           0.0;
       final userPoints = pointsState.points?.balance ?? 0.0;
-      final walletBalanceVal = walletState.wallet?.balance ?? 0.0;
+      final walletBalanceVal = walletState.wallet?.totalBalance ?? 0.0;
 
-      final usePoints = state.usePoints && pointRatio > 0;
-      final useWallet = state.useWallet;
+      // If cart contains gift card products, disable wallet and points
+      final cartHasGiftCard = cart.containsGiftCard;
+
+      final usePoints = state.usePoints && pointRatio > 0 && !cartHasGiftCard;
+      final useWallet = state.useWallet && !cartHasGiftCard;
 
       final pointsValue = usePoints ? (userPoints / pointRatio) : 0.0;
       final walletValue = useWallet ? walletBalanceVal : 0.0;

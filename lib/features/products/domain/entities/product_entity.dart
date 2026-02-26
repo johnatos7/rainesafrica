@@ -103,6 +103,7 @@ class ProductEntity extends Equatable {
   final List<ProductTagEntity>? tags;
   final List<ProductReviewEntity>? reviews;
   final List<AttributeEntity>? attributes;
+  final bool? isGiftCard;
 
   const ProductEntity({
     required this.id,
@@ -171,6 +172,7 @@ class ProductEntity extends Equatable {
     this.categories,
     this.tags,
     this.reviews,
+    this.isGiftCard,
   });
 
   @override
@@ -241,6 +243,7 @@ class ProductEntity extends Equatable {
     tags,
     reviews,
     attributes,
+    isGiftCard,
   ];
 
   // Factory constructor to create an empty product
@@ -312,6 +315,7 @@ class ProductEntity extends Equatable {
       tags: null,
       reviews: null,
       attributes: null,
+      isGiftCard: false,
     );
   }
 
@@ -383,6 +387,7 @@ class ProductEntity extends Equatable {
     List<ProductTagEntity>? tags,
     List<ProductReviewEntity>? reviews,
     List<AttributeEntity>? attributes,
+    bool? isGiftCard,
   }) {
     return ProductEntity(
       id: id ?? this.id,
@@ -453,6 +458,7 @@ class ProductEntity extends Equatable {
       tags: tags ?? this.tags,
       reviews: reviews ?? this.reviews,
       attributes: attributes ?? this.attributes,
+      isGiftCard: isGiftCard ?? this.isGiftCard,
     );
   }
 

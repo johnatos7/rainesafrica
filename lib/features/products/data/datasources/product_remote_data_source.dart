@@ -209,10 +209,15 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
     final response = await _apiClient.get('/api/product/slug/$slug');
 
     if (response is Map<String, dynamic>) {
-      return ProductModel.fromJson(response);
+      try {
+        return ProductModel.fromJson(response);
+      } catch (e) {
+        print('Error parsing product by slug "$slug": $e');
+        throw Exception('Failed to parse product data: $e');
+      }
     }
 
-    throw Exception('Invalid response format');
+    throw Exception('Invalid response format for slug: $slug');
   }
 
   @override
