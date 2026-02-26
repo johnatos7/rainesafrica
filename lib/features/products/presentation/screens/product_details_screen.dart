@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:flutter_riverpod_clean_architecture/core/network/api_client.dart';
 import 'package:flutter_riverpod_clean_architecture/core/utils/responsive_utils.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/domain/entities/attribute_entity.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/domain/entities/product_entity.dart';
@@ -19,6 +20,7 @@ import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart' as html_dom;
 import 'package:flutter_riverpod_clean_architecture/features/layby/presentation/widgets/layby_eligibility_widget.dart';
 import 'package:flutter_riverpod_clean_architecture/features/home/providers/recently_viewed_provider.dart';
+import 'package:flutter_riverpod_clean_architecture/features/products/data/models/product_model.dart';
 
 class ProductDetailsScreen extends ConsumerStatefulWidget {
   final ProductEntity product;
@@ -353,6 +355,11 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
   bool _isLoading = true;
   String? _errorMessage;
 
+  // Recommendations
+  List<ProductEntity> _relatedProducts = [];
+  List<ProductEntity> _topRatedProducts = [];
+  List<ProductEntity> _latestProducts = [];
+
   // Track selected attribute values for each attribute
   Map<int, AttributeValueEntity> _selectedAttributeValues = {};
 
@@ -360,6 +367,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
   void initState() {
     super.initState();
     _fetchFullProduct();
+    _fetchRecommendations();
     // Track recently viewed
     Future.microtask(() {
       ref.read(recentlyViewedProvider.notifier).trackView(widget.product);
@@ -393,6 +401,40 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
         _errorMessage = 'Failed to load product details';
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _fetchRecommendations() async {
+    try {
+      final apiClient = ApiClient();
+      final response = await apiClient.get(
+        'product/recommendations/${widget.product.id}',
+      );
+      if (response != null && response['success'] == true) {
+        final data = response['data'] as Map<String, dynamic>;
+
+        List<ProductEntity> parseProducts(String key) {
+          final list = data[key] as List<dynamic>? ?? [];
+          return list
+              .map(
+                (json) =>
+                    ProductModel.fromJson(
+                      json as Map<String, dynamic>,
+                    ).toEntity(),
+              )
+              .toList();
+        }
+
+        if (mounted) {
+          setState(() {
+            _relatedProducts = parseProducts('related_products');
+            _topRatedProducts = parseProducts('top_rated');
+            _latestProducts = parseProducts('latest');
+          });
+        }
+      }
+    } catch (e) {
+      print('Failed to fetch recommendations: $e');
     }
   }
 
@@ -500,8 +542,19 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
                 children: [
                   _buildProductImageSection(product),
                   _buildProductInfoSection(product),
+                  _buildProductDescriptionSection(product),
+                  if (_latestProducts.isNotEmpty)
+                    _buildRecommendationSection(
+                      'Latest Products',
+                      _latestProducts,
+                    ),
+                  _buildProductSpecificationsSection(product),
+                  if (_topRatedProducts.isNotEmpty)
+                    _buildRecommendationSection(
+                      'Top Rated Products',
+                      _topRatedProducts,
+                    ),
                   _buildRelatedProductsSection(),
-                  _buildFullDescriptionSection(product),
                 ],
               ),
             ),
@@ -1411,17 +1464,12 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
     );
   }
 
-  Widget _buildFullDescriptionSection(ProductEntity product) {
+  // ─── Product Description Section (with Show More/Less) ───
+  Widget _buildProductDescriptionSection(ProductEntity product) {
     final detailedDescription = product.description;
-    final specifications = product.specifications;
     final hasDescription =
         detailedDescription != null && detailedDescription.isNotEmpty;
-    final hasSpecifications =
-        specifications != null && specifications.isNotEmpty;
-
-    if (!hasDescription && !hasSpecifications) {
-      return const SizedBox.shrink();
-    }
+    if (!hasDescription) return const SizedBox.shrink();
 
     final colors = Theme.of(context).colorScheme;
 
@@ -1431,106 +1479,211 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ─── Product Information (full description) ───
-          if (hasDescription) ...[
-            Text(
-              'Product Information',
+          Text(
+            'Product Information',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: colors.onSurface,
+            ),
+          ),
+          const SizedBox(height: 12),
+          AnimatedCrossFade(
+            firstChild: ClipRect(
+              child: SizedBox(
+                height: 200,
+                child: _HtmlContent(html: detailedDescription!),
+              ),
+            ),
+            secondChild: _HtmlContent(html: detailedDescription!),
+            crossFadeState:
+                _isDescriptionExpanded
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 300),
+          ),
+          if (!_isDescriptionExpanded)
+            Container(
+              height: 40,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Theme.of(context).scaffoldBackgroundColor.withOpacity(0),
+                    Theme.of(context).scaffoldBackgroundColor,
+                  ],
+                ),
+              ),
+            ),
+          const SizedBox(height: 8),
+          Center(
+            child: OutlinedButton(
+              onPressed:
+                  () => setState(
+                    () => _isDescriptionExpanded = !_isDescriptionExpanded,
+                  ),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: colors.outline.withOpacity(0.3)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 10,
+                ),
+              ),
+              child: Text(
+                _isDescriptionExpanded ? 'Show Less' : 'Show More',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: colors.onSurface.withOpacity(0.7),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Product Specifications Section ───
+  Widget _buildProductSpecificationsSection(ProductEntity product) {
+    final specifications = product.specifications;
+    final hasSpecifications =
+        specifications != null && specifications.isNotEmpty;
+    if (!hasSpecifications) return const SizedBox.shrink();
+
+    final colors = Theme.of(context).colorScheme;
+
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Product Specifications',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: colors.onSurface,
+            ),
+          ),
+          const SizedBox(height: 12),
+          AnimatedCrossFade(
+            firstChild: ClipRect(
+              child: SizedBox(
+                height: 200,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Theme.of(context).dividerColor),
+                  ),
+                  child: _HtmlContent(html: specifications!),
+                ),
+              ),
+            ),
+            secondChild: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Theme.of(context).dividerColor),
+              ),
+              child: _HtmlContent(html: specifications!),
+            ),
+            crossFadeState:
+                _isSpecsExpanded
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 300),
+          ),
+          if (!_isSpecsExpanded)
+            Container(
+              height: 40,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Theme.of(context).scaffoldBackgroundColor.withOpacity(0),
+                    Theme.of(context).scaffoldBackgroundColor,
+                  ],
+                ),
+              ),
+            ),
+          const SizedBox(height: 8),
+          Center(
+            child: OutlinedButton(
+              onPressed:
+                  () => setState(() => _isSpecsExpanded = !_isSpecsExpanded),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: colors.outline.withOpacity(0.3)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 10,
+                ),
+              ),
+              child: Text(
+                _isSpecsExpanded ? 'Show Less' : 'Show More Specifications',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: colors.onSurface.withOpacity(0.7),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Recommendation Product Section ───
+  Widget _buildRecommendationSection(
+    String title,
+    List<ProductEntity> products,
+  ) {
+    if (products.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              title,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: colors.onSurface,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
-            const SizedBox(height: 12),
-            _HtmlContent(html: detailedDescription!),
-          ],
-
-          // ─── Product Specifications (standalone) ───
-          if (hasSpecifications) ...[
-            if (hasDescription) const SizedBox(height: 24),
-            Text(
-              'Product Specifications',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: colors.onSurface,
-              ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: ResponsiveUtils.productSectionHeight(context),
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: products.length,
+              itemBuilder: (context, index) {
+                return ProductCard(product: products[index]);
+              },
             ),
-            const SizedBox(height: 12),
-            AnimatedCrossFade(
-              firstChild: ClipRect(
-                child: SizedBox(
-                  height: 200,
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).cardColor,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Theme.of(context).dividerColor),
-                    ),
-                    child: _HtmlContent(html: specifications!),
-                  ),
-                ),
-              ),
-              secondChild: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Theme.of(context).dividerColor),
-                ),
-                child: _HtmlContent(html: specifications!),
-              ),
-              crossFadeState:
-                  _isSpecsExpanded
-                      ? CrossFadeState.showSecond
-                      : CrossFadeState.showFirst,
-              duration: const Duration(milliseconds: 300),
-            ),
-            if (!_isSpecsExpanded)
-              Container(
-                height: 40,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Theme.of(context).scaffoldBackgroundColor.withOpacity(0),
-                      Theme.of(context).scaffoldBackgroundColor,
-                    ],
-                  ),
-                ),
-              ),
-            const SizedBox(height: 8),
-            Center(
-              child: OutlinedButton(
-                onPressed:
-                    () => setState(() => _isSpecsExpanded = !_isSpecsExpanded),
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: colors.outline.withOpacity(0.3)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 10,
-                  ),
-                ),
-                child: Text(
-                  _isSpecsExpanded ? 'Show Less' : 'Show More Specifications',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: colors.onSurface.withOpacity(0.7),
-                  ),
-                ),
-              ),
-            ),
-          ],
-
-          const SizedBox(height: 100), // Extra space for bottom bar
+          ),
         ],
       ),
     );
@@ -1643,22 +1796,10 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
     );
   }
 
-  // Cache the provider to prevent unnecessary rebuilds
-  late final _trendingProductsProvider = trendingProductsByCategoryIdsProvider({
-    'categoryIds':
-        _fullProduct != null
-            ? (_fullProduct!.categories ?? [])
-                .map((category) => category.id)
-                .toList()
-            : (widget.product.categories ?? [])
-                .map((category) => category.id)
-                .toList(),
-    'limit': 10,
-  });
-
   Widget _buildRelatedProductsSection() {
-    // Watch the cached provider
-    final trendingProductsAsync = ref.watch(_trendingProductsProvider);
+    if (_relatedProducts.isEmpty) {
+      return const SizedBox(height: 100); // Just bottom spacer
+    }
 
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,
@@ -1669,7 +1810,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
-              'Trending in This Category',
+              'Related Products',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -1679,101 +1820,14 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
           ),
           const SizedBox(height: 12),
           SizedBox(
-            height: 260,
-            child: trendingProductsAsync.when(
-              data: (products) {
-                if (products.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.shopping_bag_outlined,
-                          size: 48,
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withOpacity(0.6),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'No trending products found',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurface.withOpacity(0.6),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                return ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: products.length,
-                  itemBuilder: (context, index) {
-                    final relatedProduct = products[index];
-                    return ProductCard(product: relatedProduct);
-                  },
-                );
+            height: ResponsiveUtils.productSectionHeight(context),
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _relatedProducts.length,
+              itemBuilder: (context, index) {
+                return ProductCard(product: _relatedProducts[index]);
               },
-              loading:
-                  () => Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Loading trending products...',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurface.withOpacity(0.6),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              error:
-                  (error, stack) => Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          size: 48,
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withOpacity(0.6),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Unable to load trending products',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurface.withOpacity(0.6),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Please try again later',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurface.withOpacity(0.5),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
             ),
           ),
           const SizedBox(height: 100), // Extra space for bottom bar
