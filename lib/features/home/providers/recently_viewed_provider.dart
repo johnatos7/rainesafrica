@@ -28,6 +28,37 @@ class RecentlyViewedNotifier extends StateNotifier<List<RecentlyViewedItem>> {
             ? product.productGalleries.first.imageUrl
             : '');
 
+    // Extract colour slugs from attributes
+    List<String>? colourSlugs;
+    bool hasMoreOptions = false;
+    try {
+      if (product.attributes != null) {
+        for (final attr in product.attributes!) {
+          if (attr.slug == 'colour' && attr.attributeValues != null) {
+            colourSlugs =
+                attr.attributeValues!
+                    .map<String>((v) => v.slug ?? '')
+                    .where((s) => s.isNotEmpty)
+                    .toList();
+          }
+        }
+      }
+      // Check variations for non-colour options
+      if (product.variations != null && product.variations!.isNotEmpty) {
+        for (final variation in product.variations!) {
+          if (variation.attributeValues != null) {
+            for (final av in variation.attributeValues!) {
+              if (av.attributeName?.toLowerCase() != 'colour') {
+                hasMoreOptions = true;
+                break;
+              }
+            }
+          }
+          if (hasMoreOptions) break;
+        }
+      }
+    } catch (_) {}
+
     final item = RecentlyViewedItem(
       productId: product.id,
       name: product.name,
@@ -37,6 +68,10 @@ class RecentlyViewedNotifier extends StateNotifier<List<RecentlyViewedItem>> {
       discount: product.discount,
       imageUrl: thumbnail,
       reviewRatings: product.reviewRatings,
+      estimatedDeliveryText: product.estimatedDeliveryText,
+      isSaleEnable: product.isSaleEnable,
+      colourSlugs: colourSlugs,
+      hasMoreOptions: hasMoreOptions,
       viewedAt: DateTime.now().millisecondsSinceEpoch,
     );
 

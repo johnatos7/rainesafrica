@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:flutter_riverpod_clean_architecture/features/products/domain/entities/product_entity.dart';
 
 class AttributeEntity extends Equatable {
   final int id;
@@ -11,6 +12,7 @@ class AttributeEntity extends Equatable {
   final DateTime? updatedAt;
   final DateTime? deletedAt;
   final AttributePivotEntity? pivot;
+  final List<AttributeValueEntity>? attributeValues;
 
   const AttributeEntity({
     required this.id,
@@ -23,6 +25,7 @@ class AttributeEntity extends Equatable {
     this.updatedAt,
     this.deletedAt,
     this.pivot,
+    this.attributeValues,
   });
 
   AttributeEntity copyWith({
@@ -36,6 +39,7 @@ class AttributeEntity extends Equatable {
     DateTime? updatedAt,
     DateTime? deletedAt,
     AttributePivotEntity? pivot,
+    List<AttributeValueEntity>? attributeValues,
   }) {
     return AttributeEntity(
       id: id ?? this.id,
@@ -48,22 +52,24 @@ class AttributeEntity extends Equatable {
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
       pivot: pivot ?? this.pivot,
+      attributeValues: attributeValues ?? this.attributeValues,
     );
   }
 
   @override
   List<Object?> get props => [
-        id,
-        name,
-        slug,
-        style,
-        status,
-        createdById,
-        createdAt,
-        updatedAt,
-        deletedAt,
-        pivot,
-      ];
+    id,
+    name,
+    slug,
+    style,
+    status,
+    createdById,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    pivot,
+    attributeValues,
+  ];
 }
 
 class AttributePivotEntity extends Equatable {
@@ -75,10 +81,7 @@ class AttributePivotEntity extends Equatable {
     required this.attributeId,
   });
 
-  AttributePivotEntity copyWith({
-    int? productId,
-    int? attributeId,
-  }) {
+  AttributePivotEntity copyWith({int? productId, int? attributeId}) {
     return AttributePivotEntity(
       productId: productId ?? this.productId,
       attributeId: attributeId ?? this.attributeId,

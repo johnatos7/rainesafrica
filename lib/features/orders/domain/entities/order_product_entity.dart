@@ -35,22 +35,25 @@ class OrderProductEntity {
 
   factory OrderProductEntity.fromJson(Map<String, dynamic> json) {
     return OrderProductEntity(
-      id: json['id'] as int,
-      name: json['name'] as String? ?? '',
-      productThumbnailId: json['product_thumbnail_id'] as int?,
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      name: json['name']?.toString() ?? '',
+      productThumbnailId: (json['product_thumbnail_id'] as num?)?.toInt(),
       userReview: json['user_review'],
-      ratingCount: json['rating_count'] as int?,
-      orderAmount: (json['order_amount'] as num).toDouble(),
+      ratingCount: (json['rating_count'] as num?)?.toInt(),
+      orderAmount: (json['order_amount'] as num?)?.toDouble() ?? 0.0,
       reviewRatings:
           (json['review_ratings'] as List<dynamic>?)
-              ?.map((e) => e as int)
+              ?.map((e) => (e as num).toInt())
               .toList() ??
           [],
       relatedProducts: json['related_products'] as List<dynamic>? ?? [],
       crossSellProducts: json['cross_sell_products'] as List<dynamic>? ?? [],
-      pivot: OrderProductPivotEntity.fromJson(
-        json['pivot'] as Map<String, dynamic>,
-      ),
+      pivot:
+          json['pivot'] != null
+              ? OrderProductPivotEntity.fromJson(
+                json['pivot'] as Map<String, dynamic>,
+              )
+              : OrderProductPivotEntity.empty(),
       variations: json['variations'] as List<dynamic>? ?? [],
       productThumbnail:
           json['product_thumbnail'] != null
@@ -132,29 +135,44 @@ class OrderProductPivotEntity {
     required this.subtotal,
   });
 
+  factory OrderProductPivotEntity.empty() {
+    return const OrderProductPivotEntity(
+      orderId: 0,
+      productId: 0,
+      quantity: 0,
+      singlePrice: 0,
+      tax: 0,
+      shippingCost: 0,
+      fastShippingCost: 0,
+      hasFastShipping: false,
+      subtotal: 0,
+    );
+  }
+
   factory OrderProductPivotEntity.fromJson(Map<String, dynamic> json) {
     return OrderProductPivotEntity(
-      orderId: json['order_id'] as int,
-      productId: json['product_id'] as int,
-      variationId: json['variation_id'] as int?,
-      selectedAttributeIds: json['selected_attribute_ids'] != null
-          ? (json['selected_attribute_ids'] as List<dynamic>)
-              .map((e) => e as int)
-              .toList()
-          : null,
-      variationDisplayName: json['variation_display_name'] as String?,
-      quantity: json['quantity'] as int,
-      singlePrice: (json['single_price'] as num).toDouble(),
+      orderId: (json['order_id'] as num?)?.toInt() ?? 0,
+      productId: (json['product_id'] as num?)?.toInt() ?? 0,
+      variationId: (json['variation_id'] as num?)?.toInt(),
+      selectedAttributeIds:
+          json['selected_attribute_ids'] != null
+              ? (json['selected_attribute_ids'] as List<dynamic>)
+                  .map((e) => (e as num).toInt())
+                  .toList()
+              : null,
+      variationDisplayName: json['variation_display_name']?.toString(),
+      quantity: (json['quantity'] as num?)?.toInt() ?? 0,
+      singlePrice: (json['single_price'] as num?)?.toDouble() ?? 0.0,
       tax: (json['tax'] as num?)?.toDouble() ?? 0.0,
-      shippingCost: (json['shipping_cost'] as num).toDouble(),
+      shippingCost: (json['shipping_cost'] as num?)?.toDouble() ?? 0.0,
       fastShippingCost: (json['fast_shipping_cost'] as num?)?.toDouble() ?? 0.0,
-      itemShippingMethod: json['item_shipping_method'] as String?,
+      itemShippingMethod: json['item_shipping_method']?.toString(),
       hasFastShipping: json['has_fast_shipping'] as bool? ?? false,
       refundStatus: json['refund_status'],
-      itemStatus: json['item_status'] as String?,
-      cancellationReason: json['cancellation_reason'] as String?,
-      eta: json['eta'] as String?,
-      subtotal: (json['subtotal'] as num).toDouble(),
+      itemStatus: json['item_status']?.toString(),
+      cancellationReason: json['cancellation_reason']?.toString(),
+      eta: json['eta']?.toString(),
+      subtotal: (json['subtotal'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
@@ -208,18 +226,18 @@ class OrderProductThumbnailEntity {
 
   factory OrderProductThumbnailEntity.fromJson(Map<String, dynamic> json) {
     return OrderProductThumbnailEntity(
-      id: json['id'] as int,
-      imageUrl: json['image_url'] as String? ?? '',
-      uuid: json['uuid'] as String?,
-      name: json['name'] as String?,
-      fileName: json['file_name'] as String?,
-      disk: json['disk'] as String? ?? 'public',
-      createdById: json['created_by_id'] as int? ?? 0,
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      imageUrl: json['image_url']?.toString() ?? '',
+      uuid: json['uuid']?.toString(),
+      name: json['name']?.toString(),
+      fileName: json['file_name']?.toString(),
+      disk: json['disk']?.toString() ?? 'public',
+      createdById: (json['created_by_id'] as num?)?.toInt() ?? 0,
       createdAt:
-          DateTime.tryParse(json['created_at'] as String? ?? '') ??
+          DateTime.tryParse(json['created_at']?.toString() ?? '') ??
           DateTime.now(),
-      originalUrl: json['original_url'] as String? ?? '',
-      takealotUrl: json['takealot_url'] as String?,
+      originalUrl: json['original_url']?.toString() ?? '',
+      takealotUrl: json['takealot_url']?.toString(),
     );
   }
 
@@ -266,18 +284,18 @@ class OrderProductGalleryEntity {
 
   factory OrderProductGalleryEntity.fromJson(Map<String, dynamic> json) {
     return OrderProductGalleryEntity(
-      id: json['id'] as int,
-      imageUrl: json['image_url'] as String? ?? '',
-      uuid: json['uuid'] as String?,
-      name: json['name'] as String?,
-      fileName: json['file_name'] as String?,
-      disk: json['disk'] as String? ?? 'public',
-      createdById: json['created_by_id'] as int? ?? 0,
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      imageUrl: json['image_url']?.toString() ?? '',
+      uuid: json['uuid']?.toString(),
+      name: json['name']?.toString(),
+      fileName: json['file_name']?.toString(),
+      disk: json['disk']?.toString() ?? 'public',
+      createdById: (json['created_by_id'] as num?)?.toInt() ?? 0,
       createdAt:
-          DateTime.tryParse(json['created_at'] as String? ?? '') ??
+          DateTime.tryParse(json['created_at']?.toString() ?? '') ??
           DateTime.now(),
-      originalUrl: json['original_url'] as String? ?? '',
-      takealotUrl: json['takealot_url'] as String?,
+      originalUrl: json['original_url']?.toString() ?? '',
+      takealotUrl: json['takealot_url']?.toString(),
     );
   }
 

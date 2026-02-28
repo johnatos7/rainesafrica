@@ -481,6 +481,44 @@ class ProductEntity extends Equatable {
     return 0.0;
   }
 
+  /// Returns the list of colour attribute values for this product.
+  /// First checks top-level attributes (detail API), then falls back to
+  /// extracting unique colours from variations where attributeName == 'Colour'.
+  List<AttributeValueEntity> get colourAttributeValues {
+    // 1. Try top-level attributes (available on product detail endpoint)
+    if (attributes != null) {
+      for (final attr in attributes!) {
+        if (attr.slug == 'colour' &&
+            attr.attributeValues != null &&
+            attr.attributeValues!.isNotEmpty) {
+          return attr.attributeValues!;
+        }
+      }
+    }
+
+    // 2. Fall back to extracting from variations (available on list endpoints)
+    //    Only include attribute values whose attributeName is 'Colour'
+    if (variations != null && variations!.isNotEmpty) {
+      final seen = <String>{};
+      final result = <AttributeValueEntity>[];
+      for (final variation in variations!) {
+        if (variation.attributeValues != null) {
+          for (final av in variation.attributeValues!) {
+            // Only include colour attributes, skip size/shipping/etc.
+            if (av.attributeName?.toLowerCase() != 'colour') continue;
+            final key = av.slug ?? av.value ?? av.id.toString();
+            if (seen.add(key)) {
+              result.add(av);
+            }
+          }
+        }
+      }
+      if (result.isNotEmpty) return result;
+    }
+
+    return [];
+  }
+
   bool get isInStock => (stockStatus == 'in_stock') && (quantity ?? 0) > 0;
   double get averageRating {
     if (reviewRatings == null || reviewRatings!.isEmpty) return 0.0;
@@ -751,6 +789,7 @@ class AttributeValueEntity extends Equatable {
   final String? hexColor;
   final String? slug;
   final int? attributeId;
+  final String? attributeName;
   final int? createdById;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -763,6 +802,7 @@ class AttributeValueEntity extends Equatable {
     this.hexColor,
     this.slug,
     this.attributeId,
+    this.attributeName,
     this.createdById,
     this.createdAt,
     this.updatedAt,
@@ -777,6 +817,7 @@ class AttributeValueEntity extends Equatable {
     hexColor,
     slug,
     attributeId,
+    attributeName,
     createdById,
     createdAt,
     updatedAt,

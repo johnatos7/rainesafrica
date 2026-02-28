@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/domain/entities/product_entity.dart';
+import 'package:flutter_riverpod_clean_architecture/core/network/api_client.dart';
+import 'package:flutter_riverpod_clean_architecture/features/products/data/datasources/product_remote_data_source.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter_riverpod_clean_architecture/core/utils/responsive_utils.dart';
 import 'package:flutter_riverpod_clean_architecture/features/cart/presentation/widgets/add_to_cart_button.dart';
-import 'package:flutter_riverpod_clean_architecture/features/products/providers/product_providers.dart';
+
 import 'package:flutter_riverpod_clean_architecture/features/products/data/models/product_model.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/presentation/screens/product_details_screen.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/presentation/widgets/product_card.dart';
@@ -15,6 +17,7 @@ import 'package:flutter_riverpod_clean_architecture/features/products/presentati
 import 'package:flutter_riverpod_clean_architecture/features/wishlist/presentation/widgets/wishlist_button.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod_clean_architecture/core/utils/app_utils.dart';
+import 'package:flutter_riverpod_clean_architecture/features/products/presentation/widgets/color_attribute_indicator.dart';
 
 class ProductSearchScreen extends ConsumerStatefulWidget {
   const ProductSearchScreen({super.key});
@@ -35,7 +38,12 @@ class _ProductSearchScreenState extends ConsumerState<ProductSearchScreen> {
   int _currentPage = 1;
   static const int _itemsPerPage = 20;
   bool _hasMorePages = false;
+  int _totalSearchResults = 0; // Total results from server
   bool _isGridView = true; // Default to grid view
+
+  // Data source for paginated search
+  final ProductRemoteDataSourceImpl _productRemoteDataSource =
+      ProductRemoteDataSourceImpl(apiClient: ApiClient());
 
   // EasyRefresh controllers
   final ScrollController _scrollController = ScrollController();
@@ -98,6 +106,8 @@ class _ProductSearchScreenState extends ConsumerState<ProductSearchScreen> {
       _query = searchText;
     });
     if (searchText.isNotEmpty) {
+      // Reset sort to relevance on every new search
+      _handleSortSelection('relevance', triggerSearch: false);
       _performSearch(searchText);
     } else {
       _searchResults.clear();
@@ -143,44 +153,26 @@ class _ProductSearchScreenState extends ConsumerState<ProductSearchScreen> {
         _addToRecentSearches(query);
       }
 
-      // Call the repository with all ES filters
-      final repository = ref.read(productRepositoryProvider);
-      final result = await repository.searchProducts(
-        query: query,
-        sku: sku,
-        page: 1,
-        limit: _itemsPerPage,
-        price: _buildEsPriceParam(),
-        rating: _minRating > 0 ? _minRating : null,
-        field: _esField,
-        sortBy: _esSortBy,
-      );
-
-      result.fold(
-        (failure) {
-          print('Search failed: ${failure.message}');
-          setState(() {
-            _searchResults = [];
-            _filteredResults = [];
-            _hasMorePages = false;
-          });
-        },
-        (products) {
-          print(
-            'Search Screen: Received ${products.length} products from repository',
+      // Use paginated search to get total count from server
+      final paginatedResult = await _productRemoteDataSource
+          .searchProductsPaginated(
+            query: query,
+            sku: sku,
+            page: 1,
+            limit: _itemsPerPage,
+            price: _buildEsPriceParam(),
+            rating: _minRating > 0 ? _minRating : null,
+            field: _esField,
+            sortBy: _esSortBy,
           );
 
-          setState(() {
-            _searchResults =
-                products
-                    .map((entity) => ProductModel.fromEntity(entity))
-                    .toList();
-            _currentPage = 2;
-            _hasMorePages = products.length >= _itemsPerPage;
-            _applyFiltersAndSort();
-          });
-        },
-      );
+      setState(() {
+        _searchResults = paginatedResult.products;
+        _currentPage = 2;
+        _hasMorePages = paginatedResult.pagination.hasNextPage;
+        _totalSearchResults = paginatedResult.pagination.total;
+        _applyFiltersAndSort();
+      });
     } catch (e) {
       print('Search error: $e');
       setState(() {
@@ -199,45 +191,34 @@ class _ProductSearchScreenState extends ConsumerState<ProductSearchScreen> {
 
   Future<void> _loadMoreSearch() async {
     if (_isLoadingMore || !_hasMorePages || _query.trim().isEmpty) return;
+
     setState(() {
       _isLoadingMore = true;
     });
+
     try {
-      final repository = ref.read(productRepositoryProvider);
-      final result = await repository.searchProducts(
-        query: _query,
-        page: _currentPage,
-        limit: _itemsPerPage,
-        price: _buildEsPriceParam(),
-        rating: _minRating > 0 ? _minRating : null,
-        field: _esField,
-        sortBy: _esSortBy,
-      );
-      result.fold(
-        (failure) {
-          print('Load more failed: ${failure.message}');
-        },
-        (products) {
-          setState(() {
-            final next =
-                products
-                    .map((entity) => ProductModel.fromEntity(entity))
-                    .toList();
-            _searchResults = [..._searchResults, ...next];
-            _currentPage++;
-            _hasMorePages = next.length >= _itemsPerPage;
-            _applyFiltersAndSort();
-          });
-        },
-      );
+      final paginatedResult = await _productRemoteDataSource
+          .searchProductsPaginated(
+            query: _query,
+            page: _currentPage,
+            limit: _itemsPerPage,
+            price: _buildEsPriceParam(),
+            rating: _minRating > 0 ? _minRating : null,
+            field: _esField,
+            sortBy: _esSortBy,
+          );
+
+      setState(() {
+        _searchResults = [..._searchResults, ...paginatedResult.products];
+        _currentPage++;
+        _hasMorePages = paginatedResult.pagination.hasNextPage;
+        // Keep the server total (doesn't change between pages)
+        _applyFiltersAndSort();
+      });
     } catch (e) {
-      print('Error loading more search results: $e');
+      print('Load more error: $e');
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoadingMore = false;
-        });
-      }
+      setState(() => _isLoadingMore = false);
     }
   }
 
@@ -367,8 +348,61 @@ class _ProductSearchScreenState extends ConsumerState<ProductSearchScreen> {
           return true;
         }).toList();
 
-    // Sorting is now handled server-side via field + sortBy params.
-    // No client-side sort needed when server sort is active.
+    // Apply client-side sorting
+    if (_selectedSortOption != 'relevance') {
+      filtered.sort((a, b) {
+        int comparison = 0;
+        switch (_selectedSortOption) {
+          case 'name_asc':
+            comparison = (a.name ?? '').compareTo(b.name ?? '');
+            break;
+          case 'name_desc':
+            comparison = (b.name ?? '').compareTo(a.name ?? '');
+            break;
+          case 'price_asc':
+            final priceA = a.salePrice ?? a.price ?? 0;
+            final priceB = b.salePrice ?? b.price ?? 0;
+            comparison = priceA.compareTo(priceB);
+            break;
+          case 'price_desc':
+            final priceA = a.salePrice ?? a.price ?? 0;
+            final priceB = b.salePrice ?? b.price ?? 0;
+            comparison = priceB.compareTo(priceA);
+            break;
+          case 'discount_desc':
+            final discountA = a.discount ?? 0;
+            final discountB = b.discount ?? 0;
+            comparison = discountB.compareTo(discountA);
+            break;
+          case 'rating_desc':
+            final ratingA = a.ratingCount ?? 0;
+            final ratingB = b.ratingCount ?? 0;
+            comparison = ratingB.compareTo(ratingA);
+            break;
+          case 'newest':
+            final dateA = a.createdAt ?? DateTime(1970);
+            final dateB = b.createdAt ?? DateTime(1970);
+            comparison = dateB.compareTo(dateA);
+            break;
+          case 'oldest':
+            final dateA = a.createdAt ?? DateTime(1970);
+            final dateB = b.createdAt ?? DateTime(1970);
+            comparison = dateA.compareTo(dateB);
+            break;
+          case 'featured':
+            final featuredA = a.isFeatured ?? 0;
+            final featuredB = b.isFeatured ?? 0;
+            comparison = featuredB.compareTo(featuredA);
+            break;
+          case 'trending':
+            final trendingA = a.isTrending ?? 0;
+            final trendingB = b.isTrending ?? 0;
+            comparison = trendingB.compareTo(trendingA);
+            break;
+        }
+        return comparison;
+      });
+    }
 
     print('Search Screen: Filtered results: ${filtered.length} products');
     setState(() {
@@ -448,10 +482,8 @@ class _ProductSearchScreenState extends ConsumerState<ProductSearchScreen> {
           break;
       }
     });
-    // Re-trigger server search with new sort params
-    if (triggerSearch && _query.trim().isNotEmpty) {
-      _performSearch(_query, isRefresh: true);
-    }
+    // Sort the already-loaded results client-side
+    _applyFiltersAndSort();
   }
 
   bool _hasActiveFilters() {
@@ -817,10 +849,11 @@ class _ProductSearchScreenState extends ConsumerState<ProductSearchScreen> {
 
   Widget _buildActionButtons(ColorScheme colors) {
     final itemCount = _filteredResults.length;
+    final totalLoaded = _totalSearchResults;
     return Container(
-      color: colors.surface,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
+        color: colors.surface,
         border: Border(
           bottom: BorderSide(color: colors.outline.withOpacity(0.15), width: 1),
         ),
@@ -829,7 +862,9 @@ class _ProductSearchScreenState extends ConsumerState<ProductSearchScreen> {
         children: [
           // Item count
           Text(
-            '$itemCount item${itemCount == 1 ? '' : 's'}',
+            totalLoaded > 0
+                ? '$itemCount of $totalLoaded item${totalLoaded == 1 ? '' : 's'}'
+                : '$itemCount item${itemCount == 1 ? '' : 's'}',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -957,27 +992,38 @@ class _ProductSearchScreenState extends ConsumerState<ProductSearchScreen> {
               ),
             ),
           ),
-          ...sortOptions.map((option) {
-            final isSelected = _selectedSortOption == option['value'];
-            return ListTile(
-              title: Text(
-                option['label'] as String,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                  color: isSelected ? colors.primary : colors.onSurface,
-                ),
-              ),
-              trailing:
-                  isSelected
-                      ? Icon(Icons.check, color: colors.primary, size: 20)
-                      : null,
-              onTap: () {
-                Navigator.pop(context);
-                _handleSortSelection(option['value'] as String);
-              },
-            );
-          }),
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              children:
+                  sortOptions.map((option) {
+                    final isSelected = _selectedSortOption == option['value'];
+                    return ListTile(
+                      title: Text(
+                        option['label'] as String,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight:
+                              isSelected ? FontWeight.w600 : FontWeight.w400,
+                          color: isSelected ? colors.primary : colors.onSurface,
+                        ),
+                      ),
+                      trailing:
+                          isSelected
+                              ? Icon(
+                                Icons.check,
+                                color: colors.primary,
+                                size: 20,
+                              )
+                              : null,
+                      onTap: () {
+                        Navigator.pop(context);
+                        _handleSortSelection(option['value'] as String);
+                      },
+                    );
+                  }).toList(),
+            ),
+          ),
           const SizedBox(height: 16),
         ],
       ),
@@ -1172,122 +1218,131 @@ class _ProductSearchScreenState extends ConsumerState<ProductSearchScreen> {
             // Product Details
             Expanded(
               flex: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Product Name
-                    Text(
-                      product.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: theme.colorScheme.onSurface,
-                        height: 1.3,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    // Price
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          ref.watch(currencyFormattingProvider)(
-                            product.effectivePrice,
-                          ),
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: theme.colorScheme.onSurface,
-                          ),
+              child: ClipRect(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Product Name
+                      Text(
+                        product.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: theme.colorScheme.onSurface,
+                          height: 1.3,
                         ),
-                        const SizedBox(width: 6),
-                        if (product.isOnSale)
+                      ),
+                      const SizedBox(height: 4),
+                      // Price
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
                           Text(
                             ref.watch(currencyFormattingProvider)(
-                              product.price,
+                              product.effectivePrice,
                             ),
                             style: TextStyle(
-                              fontSize: 12,
-                              color: theme.colorScheme.onSurface.withOpacity(
-                                0.5,
-                              ),
-                              decoration: TextDecoration.lineThrough,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: theme.colorScheme.onSurface,
                             ),
                           ),
-                      ],
-                    ),
-                    // Shipping / Delivery info
-                    if (product.estimatedDeliveryText != null &&
-                        product.estimatedDeliveryText!.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          product.estimatedDeliveryText!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF2E7D32),
-                            fontWeight: FontWeight.w500,
+                          const SizedBox(width: 6),
+                          if (product.isOnSale)
+                            Text(
+                              ref.watch(currencyFormattingProvider)(
+                                product.price,
+                              ),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: theme.colorScheme.onSurface.withOpacity(
+                                  0.5,
+                                ),
+                                decoration: TextDecoration.lineThrough,
+                              ),
+                            ),
+                        ],
+                      ),
+                      // Colour attribute indicator
+                      ColorAttributeIndicator(product: product),
+                      // Shipping / Delivery info
+                      if (product.estimatedDeliveryText != null &&
+                          product.estimatedDeliveryText!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            product.estimatedDeliveryText!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color:
+                                  Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? const Color(0xFF66BB6A)
+                                      : const Color(0xFF2E7D32),
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
-                      ),
 
-                    // Rating moved below delivery
-                    Builder(
-                      builder: (context) {
-                        final ratings = product.reviewRatings;
-                        final totalReviews =
-                            (ratings != null && ratings.isNotEmpty)
-                                ? ratings.fold(0, (sum, count) => sum + count)
-                                : 0;
-                        final avgRating =
-                            totalReviews > 0
-                                ? ratings!.asMap().entries.fold(
-                                      0,
-                                      (sum, entry) =>
-                                          sum + (entry.value * (entry.key + 1)),
-                                    ) /
-                                    totalReviews
-                                : 0.0;
-                        if (totalReviews == 0) return const SizedBox.shrink();
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.star,
-                                size: 13,
-                                color: Color(0xFFFFB800),
-                              ),
-                              const SizedBox(width: 2),
-                              Text(
-                                avgRating.toStringAsFixed(1),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: theme.colorScheme.onSurface,
+                      // Rating moved below delivery
+                      Builder(
+                        builder: (context) {
+                          final ratings = product.reviewRatings;
+                          final totalReviews =
+                              (ratings != null && ratings.isNotEmpty)
+                                  ? ratings.fold(0, (sum, count) => sum + count)
+                                  : 0;
+                          final avgRating =
+                              totalReviews > 0
+                                  ? ratings!.asMap().entries.fold(
+                                        0,
+                                        (sum, entry) =>
+                                            sum +
+                                            (entry.value * (entry.key + 1)),
+                                      ) /
+                                      totalReviews
+                                  : 0.0;
+                          if (totalReviews == 0) return const SizedBox.shrink();
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.star,
+                                  size: 13,
+                                  color: Color(0xFFFFB800),
                                 ),
-                              ),
-                              const SizedBox(width: 2),
-                              Text(
-                                '($totalReviews)',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: theme.colorScheme.onSurface
-                                      .withOpacity(0.5),
+                                const SizedBox(width: 2),
+                                Text(
+                                  avgRating.toStringAsFixed(1),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: theme.colorScheme.onSurface,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                                const SizedBox(width: 2),
+                                Text(
+                                  '($totalReviews)',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: theme.colorScheme.onSurface
+                                        .withOpacity(0.5),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1493,6 +1548,8 @@ class _ProductSearchScreenState extends ConsumerState<ProductSearchScreen> {
                       ],
                     ),
                     const SizedBox(height: 6),
+                    // Colour attribute indicator
+                    ColorAttributeIndicator(product: product),
                     // Shipping / Delivery info
                     if (product.estimatedDeliveryText != null &&
                         product.estimatedDeliveryText!.isNotEmpty)
@@ -1500,9 +1557,12 @@ class _ProductSearchScreenState extends ConsumerState<ProductSearchScreen> {
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Text(
                           product.estimatedDeliveryText!,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: Color(0xFF2E7D32),
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? const Color(0xFF66BB6A)
+                                    : const Color(0xFF2E7D32),
                             fontWeight: FontWeight.w500,
                           ),
                         ),

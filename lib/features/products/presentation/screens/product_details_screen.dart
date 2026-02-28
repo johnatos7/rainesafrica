@@ -377,7 +377,11 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
   Future<void> _fetchFullProduct() async {
     try {
       final repository = ref.read(productRepositoryProvider);
-      final result = await repository.getProductBySlug(widget.product.slug);
+      // Use slug if available, otherwise fall back to ID
+      final result =
+          widget.product.slug.isNotEmpty
+              ? await repository.getProductBySlug(widget.product.slug)
+              : await repository.getProductById(widget.product.id);
 
       result.fold(
         (failure) {
@@ -551,6 +555,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
                 children: [
                   _buildProductImageSection(product),
                   _buildProductInfoSection(product),
+                  _buildRelatedProductsSection(),
                   _buildProductDescriptionSection(product),
                   if (_latestProducts.isNotEmpty)
                     _buildRecommendationSection(
@@ -563,7 +568,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
                       'Top Rated Products',
                       _topRatedProducts,
                     ),
-                  _buildRelatedProductsSection(),
+                  const SizedBox(height: 100),
                 ],
               ),
             ),
@@ -917,7 +922,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
               isVariantSelected: _selectedVariation != null,
             ),
 
-            const SizedBox(height: 100), // Extra space for bottom bar
+            const SizedBox(height: 16), // Space before next section
           ],
         ),
       ),
@@ -1807,7 +1812,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
 
   Widget _buildRelatedProductsSection() {
     if (_relatedProducts.isEmpty) {
-      return const SizedBox(height: 100); // Just bottom spacer
+      return const SizedBox.shrink();
     }
 
     return Container(
@@ -1819,7 +1824,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
-              'Related Products',
+              'You Might Also Like',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -1839,7 +1844,6 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
               },
             ),
           ),
-          const SizedBox(height: 100), // Extra space for bottom bar
         ],
       ),
     );

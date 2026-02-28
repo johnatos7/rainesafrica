@@ -19,7 +19,7 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
     try {
       final response = await _apiClient.get(
         '/api/order',
-        queryParameters: {'page': page},
+        queryParameters: {'page': page, 'paginate': 15},
       );
 
       return OrderListResponse.fromJson(response);

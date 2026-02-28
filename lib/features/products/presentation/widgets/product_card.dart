@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/presentation/screens/product_details_screen.dart';
 import 'package:flutter_riverpod_clean_architecture/features/currency/presentation/providers/currency_provider.dart';
 import 'package:flutter_riverpod_clean_architecture/features/wishlist/presentation/widgets/wishlist_button.dart';
+import 'package:flutter_riverpod_clean_architecture/features/products/presentation/widgets/color_attribute_indicator.dart';
 
 class ProductCard extends ConsumerWidget {
   final dynamic product;
@@ -15,11 +16,19 @@ class ProductCard extends ConsumerWidget {
   /// When false (default), the card uses a fixed width for horizontal lists.
   final bool isGridItem;
 
+  /// Optional pre-extracted colour slugs for ColorAttributeIndicator.
+  final List<String>? overrideColourSlugs;
+
+  /// Optional pre-extracted "has more options" flag.
+  final bool? overrideHasMoreOptions;
+
   const ProductCard({
     super.key,
     required this.product,
     this.onTap,
     this.isGridItem = false,
+    this.overrideColourSlugs,
+    this.overrideHasMoreOptions,
   });
 
   @override
@@ -57,7 +66,7 @@ class ProductCard extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 13,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w400,
                         color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
@@ -93,7 +102,7 @@ class ProductCard extends ConsumerWidget {
                               avgRating.toStringAsFixed(1),
                               style: TextStyle(
                                 fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w400,
                                 color: Theme.of(context).colorScheme.onSurface,
                               ),
                             ),
@@ -143,6 +152,12 @@ class ProductCard extends ConsumerWidget {
                           ),
                       ],
                     ),
+                    // Colour attribute indicator
+                    ColorAttributeIndicator(
+                      product: product,
+                      overrideColourSlugs: overrideColourSlugs,
+                      overrideHasMoreOptions: overrideHasMoreOptions,
+                    ),
                     // Shipping / Delivery info
                     if (product.estimatedDeliveryText != null &&
                         (product.estimatedDeliveryText as String).isNotEmpty)
@@ -152,10 +167,13 @@ class ProductCard extends ConsumerWidget {
                           product.estimatedDeliveryText as String,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 10,
-                            color: Color(0xFF2E7D32),
-                            fontWeight: FontWeight.w500,
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? const Color(0xFF66BB6A)
+                                    : const Color(0xFF2E7D32),
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
                       ),
@@ -181,19 +199,22 @@ class ProductCard extends ConsumerWidget {
     final imageStack = Stack(
       fit: StackFit.expand,
       children: [
-        Image.network(
-          product.productThumbnail.imageUrl,
-          fit: BoxFit.cover,
-          errorBuilder:
-              (context, _, __) => Center(
-                child: Icon(
-                  Icons.image,
-                  size: 40,
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withOpacity(0.4),
+        Container(
+          color: Colors.white,
+          child: Image.network(
+            product.productThumbnail.imageUrl,
+            fit: BoxFit.contain,
+            errorBuilder:
+                (context, _, __) => Center(
+                  child: Icon(
+                    Icons.image,
+                    size: 40,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(0.4),
+                  ),
                 ),
-              ),
+          ),
         ),
         // Sale Badges
         if (product.isOnSale) ...[

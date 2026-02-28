@@ -1404,6 +1404,7 @@ class AttributeValueModel extends Equatable {
   final String? hexColor;
   final String? slug;
   final int? attributeId;
+  final String? attributeName;
   final int? createdById;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -1416,6 +1417,7 @@ class AttributeValueModel extends Equatable {
     this.hexColor,
     this.slug,
     this.attributeId,
+    this.attributeName,
     this.createdById,
     this.createdAt,
     this.updatedAt,
@@ -1430,6 +1432,7 @@ class AttributeValueModel extends Equatable {
     hexColor,
     slug,
     attributeId,
+    attributeName,
     createdById,
     createdAt,
     updatedAt,
@@ -1444,6 +1447,7 @@ class AttributeValueModel extends Equatable {
       hexColor: json['hex_color'] as String?,
       slug: json['slug'] as String?,
       attributeId: json['attribute_id'] as int?,
+      attributeName: json['attribute_name'] as String?,
       createdById: json['created_by_id'] as int?,
       createdAt:
           json['created_at'] != null
@@ -1473,6 +1477,7 @@ class AttributeValueModel extends Equatable {
       'hex_color': hexColor,
       'slug': slug,
       'attribute_id': attributeId,
+      'attribute_name': attributeName,
       'created_by_id': createdById,
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
@@ -1488,6 +1493,7 @@ class AttributeValueModel extends Equatable {
       hexColor: entity.hexColor,
       slug: entity.slug,
       attributeId: entity.attributeId,
+      attributeName: entity.attributeName,
       createdById: entity.createdById,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
@@ -1582,6 +1588,7 @@ extension AttributeValueModelX on AttributeValueModel {
       hexColor: hexColor,
       slug: slug,
       attributeId: attributeId,
+      attributeName: attributeName,
       createdById: createdById,
       createdAt: createdAt,
       updatedAt: updatedAt,

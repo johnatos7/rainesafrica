@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/domain/entities/attribute_entity.dart';
+import 'package:flutter_riverpod_clean_architecture/features/products/data/models/product_model.dart';
 
 class AttributeModel extends Equatable {
   final int id;
@@ -12,6 +13,7 @@ class AttributeModel extends Equatable {
   final DateTime? updatedAt;
   final DateTime? deletedAt;
   final AttributePivot? pivot;
+  final List<AttributeValueModel>? attributeValues;
 
   const AttributeModel({
     required this.id,
@@ -24,6 +26,7 @@ class AttributeModel extends Equatable {
     this.updatedAt,
     this.deletedAt,
     this.pivot,
+    this.attributeValues,
   });
 
   factory AttributeModel.fromJson(Map<String, dynamic> json) {
@@ -34,18 +37,31 @@ class AttributeModel extends Equatable {
       style: json['style'] as String?,
       status: json['status'] as int?,
       createdById: json['created_by_id'] as int?,
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'] as String)
-          : null,
-      updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'] as String)
-          : null,
-      deletedAt: json['deleted_at'] != null
-          ? DateTime.parse(json['deleted_at'] as String)
-          : null,
-      pivot: json['pivot'] != null
-          ? AttributePivot.fromJson(json['pivot'] as Map<String, dynamic>)
-          : null,
+      createdAt:
+          json['created_at'] != null
+              ? DateTime.parse(json['created_at'] as String)
+              : null,
+      updatedAt:
+          json['updated_at'] != null
+              ? DateTime.parse(json['updated_at'] as String)
+              : null,
+      deletedAt:
+          json['deleted_at'] != null
+              ? DateTime.parse(json['deleted_at'] as String)
+              : null,
+      pivot:
+          json['pivot'] != null
+              ? AttributePivot.fromJson(json['pivot'] as Map<String, dynamic>)
+              : null,
+      attributeValues:
+          json['attribute_values'] != null
+              ? (json['attribute_values'] as List)
+                  .map(
+                    (e) =>
+                        AttributeValueModel.fromJson(e as Map<String, dynamic>),
+                  )
+                  .toList()
+              : null,
     );
   }
 
@@ -61,6 +77,7 @@ class AttributeModel extends Equatable {
       'updated_at': updatedAt?.toIso8601String(),
       'deleted_at': deletedAt?.toIso8601String(),
       'pivot': pivot?.toJson(),
+      'attribute_values': attributeValues?.map((e) => e.toJson()).toList(),
     };
   }
 
@@ -75,25 +92,31 @@ class AttributeModel extends Equatable {
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
       deletedAt: entity.deletedAt,
-      pivot: entity.pivot != null
-          ? AttributePivot.fromEntity(entity.pivot!)
-          : null,
+      pivot:
+          entity.pivot != null
+              ? AttributePivot.fromEntity(entity.pivot!)
+              : null,
+      attributeValues:
+          entity.attributeValues
+              ?.map((e) => AttributeValueModel.fromEntity(e))
+              .toList(),
     );
   }
 
   @override
   List<Object?> get props => [
-        id,
-        name,
-        slug,
-        style,
-        status,
-        createdById,
-        createdAt,
-        updatedAt,
-        deletedAt,
-        pivot,
-      ];
+    id,
+    name,
+    slug,
+    style,
+    status,
+    createdById,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    pivot,
+    attributeValues,
+  ];
 }
 
 class AttributePivot extends Equatable {
@@ -117,10 +140,7 @@ class AttributePivot extends Equatable {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'product_id': productId,
-      'attribute_id': attributeId,
-    };
+    return {'product_id': productId, 'attribute_id': attributeId};
   }
 
   @override
@@ -140,15 +160,13 @@ extension AttributeModelX on AttributeModel {
       updatedAt: updatedAt,
       deletedAt: deletedAt,
       pivot: pivot?.toEntity(),
+      attributeValues: attributeValues?.map((e) => e.toEntity()).toList(),
     );
   }
 }
 
 extension AttributePivotX on AttributePivot {
   AttributePivotEntity toEntity() {
-    return AttributePivotEntity(
-      productId: productId,
-      attributeId: attributeId,
-    );
+    return AttributePivotEntity(productId: productId, attributeId: attributeId);
   }
 }

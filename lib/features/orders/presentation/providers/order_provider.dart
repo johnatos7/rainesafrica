@@ -127,7 +127,37 @@ class OrderListNotifier extends StateNotifier<OrderListState> {
   Future<void> loadMoreOrders() async {
     if (!state.hasMore || state.isLoading) return;
 
-    await loadOrders();
+    final nextPage = state.currentPage + 1;
+    state = state.copyWith(isLoading: true, errorMessage: null);
+
+    try {
+      final result = await _getOrdersUseCase(GetOrdersParams(page: nextPage));
+
+      result.fold(
+        (failure) {
+          state = state.copyWith(
+            isLoading: false,
+            errorMessage: failure.message,
+          );
+        },
+        (orderResponse) {
+          final allOrders = [...state.orders, ...orderResponse.data];
+
+          state = state.copyWith(
+            isLoading: false,
+            orders: allOrders,
+            filteredOrders: allOrders,
+            currentPage: orderResponse.currentPage,
+            totalPages: orderResponse.lastPage,
+            totalOrders: orderResponse.total,
+            hasMore: orderResponse.nextPageUrl != null,
+            errorMessage: null,
+          );
+        },
+      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: e.toString());
+    }
   }
 
   void clearError() {

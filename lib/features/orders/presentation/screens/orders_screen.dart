@@ -208,6 +208,24 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         child: Column(
           children: [
             _buildSearchAndFilters(colors),
+            // Order count indicator
+            if (orderState.orders.isNotEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                color: colors.surface,
+                child: Text(
+                  'Showing ${orderState.orders.length} of ${orderState.totalOrders} orders',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: colors.onSurface.withOpacity(0.6),
+                  ),
+                ),
+              ),
             Expanded(child: _buildBody(orderState, colors)),
           ],
         ),

@@ -18,6 +18,7 @@ class LaybyDetailsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = Theme.of(context).colorScheme;
+    // Always fetch fresh data when this screen is shown
     final detailsAsync = ref.watch(
       laybyApplicationDetailsProvider(applicationId),
     );
@@ -33,6 +34,23 @@ class LaybyDetailsScreen extends ConsumerWidget {
         backgroundColor: colors.surface,
         foregroundColor: colors.onSurface,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            // Invalidate list cache so it refreshes when we go back
+            ref.invalidate(laybyApplicationsProvider);
+            Navigator.of(context).pop();
+          },
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
+            onPressed: () {
+              ref.invalidate(laybyApplicationDetailsProvider(applicationId));
+            },
+          ),
+        ],
       ),
       body: detailsAsync.when(
         data: (app) => _buildBody(context, ref, app, colors),
@@ -79,466 +97,254 @@ class LaybyDetailsScreen extends ConsumerWidget {
         app.status.toLowerCase() == 'active' ||
         app.status.toLowerCase() == 'approved';
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Product card
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: colors.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: SizedBox(
-                    width: 72,
-                    height: 72,
-                    child:
-                        app.thumbnailUrl != null
-                            ? Image.network(
-                              app.thumbnailUrl!,
-                              fit: BoxFit.cover,
-                              errorBuilder:
-                                  (_, __, ___) => _placeholder(colors),
-                            )
-                            : _placeholder(colors),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        app.productName,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: colors.onSurface,
-                        ),
-                      ),
-                      if (app.variationDisplayName != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          app.variationDisplayName!,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: colors.onSurface.withOpacity(0.5),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 4),
-                      LaybyStatusBadge(status: app.status),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Application number
-          _infoRow(colors, 'Application #', app.applicationNumber),
-
-          if (app.rejectionReason != null &&
-              app.status.toLowerCase() == 'rejected') ...[
-            const SizedBox(height: 12),
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(laybyApplicationDetailsProvider(applicationId));
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Product card
             Container(
-              width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: colors.error.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: colors.error.withOpacity(0.2)),
+                color: colors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    'Rejection Reason',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: colors.error,
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: SizedBox(
+                      width: 72,
+                      height: 72,
+                      child:
+                          app.thumbnailUrl != null
+                              ? Image.network(
+                                app.thumbnailUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder:
+                                    (_, __, ___) => _placeholder(colors),
+                              )
+                              : _placeholder(colors),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    app.rejectionReason!,
-                    style: TextStyle(fontSize: 13, color: colors.onSurface),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          app.productName,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: colors.onSurface,
+                          ),
+                        ),
+                        if (app.variationDisplayName != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            app.variationDisplayName!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: colors.onSurface.withOpacity(0.5),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 4),
+                        LaybyStatusBadge(status: app.status),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          // Payment breakdown
-          Text(
-            'Payment Breakdown',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: colors.onSurface,
-            ),
-          ),
-          const SizedBox(height: 12),
-          _paymentRow(
-            colors,
-            'Product Price',
-            '${formatCurrency(double.tryParse(app.productPrice) ?? 0)}',
-          ),
-          _paymentRow(
-            colors,
-            'Deposit (${app.durationMonths > 0 ? "${((deposit / totalAmount) * 100).toStringAsFixed(0)}%" : ""})',
-            '${formatCurrency(deposit)}',
-          ),
-          _paymentRow(colors, 'Monthly Payment', '${formatCurrency(monthly)}'),
-          _paymentRow(colors, 'Duration', '${app.durationMonths} months'),
-          const Divider(height: 24),
-          _paymentRow(
-            colors,
-            'Total Amount',
-            '${formatCurrency(totalAmount)}',
-            isBold: true,
-          ),
-          _paymentRow(
-            colors,
-            'Total Paid',
-            '${formatCurrency(totalPaid)}',
-            valueColor: Colors.green,
-          ),
-          _paymentRow(
-            colors,
-            'Balance Remaining',
-            '${formatCurrency(balance)}',
-            valueColor: balance > 0 ? colors.error : Colors.green,
-          ),
-          const SizedBox(height: 16),
+            // Application number
+            _infoRow(colors, 'Application #', app.applicationNumber),
 
-          // Progress bar
-          Text(
-            'Payment Progress',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: colors.onSurface,
-            ),
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: app.paymentProgress,
-              backgroundColor: colors.surfaceContainerHighest,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                app.paymentProgress >= 1.0 ? Colors.teal : colors.primary,
+            if (app.rejectionReason != null &&
+                app.status.toLowerCase() == 'rejected') ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colors.error.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: colors.error.withOpacity(0.2)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Rejection Reason',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: colors.error,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      app.rejectionReason!,
+                      style: TextStyle(fontSize: 13, color: colors.onSurface),
+                    ),
+                  ],
+                ),
               ),
-              minHeight: 10,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${(app.paymentProgress * 100).toStringAsFixed(1)}% complete',
-            style: TextStyle(
-              fontSize: 12,
-              color: colors.onSurface.withOpacity(0.5),
-            ),
-          ),
-          const SizedBox(height: 20),
+            ],
+            const SizedBox(height: 16),
 
-          // Payment history
-          if (app.payments.isNotEmpty) ...[
+            // Payment breakdown
             Text(
-              'Payment History',
+              'Payment Breakdown',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
                 color: colors.onSurface,
               ),
             ),
+            const SizedBox(height: 12),
+            _paymentRow(
+              colors,
+              'Product Price',
+              '${formatCurrency(double.tryParse(app.productPrice) ?? 0)}',
+            ),
+            _paymentRow(
+              colors,
+              'Deposit (${app.durationMonths > 0 ? "${((deposit / totalAmount) * 100).toStringAsFixed(0)}%" : ""})',
+              '${formatCurrency(deposit)}',
+            ),
+            _paymentRow(
+              colors,
+              'Monthly Payment',
+              '${formatCurrency(monthly)}',
+            ),
+            _paymentRow(colors, 'Duration', '${app.durationMonths} months'),
+            const Divider(height: 24),
+            _paymentRow(
+              colors,
+              'Total Amount',
+              '${formatCurrency(totalAmount)}',
+              isBold: true,
+            ),
+            _paymentRow(
+              colors,
+              'Total Paid',
+              '${formatCurrency(totalPaid)}',
+              valueColor: Colors.green,
+            ),
+            _paymentRow(
+              colors,
+              'Balance Remaining',
+              '${formatCurrency(balance)}',
+              valueColor: balance > 0 ? colors.error : Colors.green,
+            ),
+            const SizedBox(height: 16),
+
+            // Progress bar
+            Text(
+              'Payment Progress',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: colors.onSurface,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: app.paymentProgress,
+                backgroundColor: colors.surfaceContainerHighest,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  app.paymentProgress >= 1.0 ? Colors.teal : colors.primary,
+                ),
+                minHeight: 10,
+              ),
+            ),
             const SizedBox(height: 4),
             Text(
-              '${app.payments.length} payment${app.payments.length == 1 ? '' : 's'} recorded',
+              '${(app.paymentProgress * 100).toStringAsFixed(1)}% complete',
               style: TextStyle(
                 fontSize: 12,
                 color: colors.onSurface.withOpacity(0.5),
               ),
             ),
-            const SizedBox(height: 12),
-            ...app.payments.asMap().entries.map((entry) {
-              final index = entry.key;
-              final payment = entry.value;
-              final statusLower = payment.status.toLowerCase();
+            const SizedBox(height: 20),
 
-              // Determine status color, icon, and label
-              Color statusColor;
-              IconData statusIcon;
-              String statusLabel;
+            // Payment history
+            if (app.payments.isNotEmpty) ...[
+              _PaymentHistorySection(
+                payments: app.payments,
+                formatCurrency: formatCurrency,
+                formatDateTime: _formatDateTime,
+                paymentMethodIcon: _paymentMethodIcon,
+                paymentMethodLabel: _paymentMethodLabel,
+              ),
+            ],
+            const SizedBox(height: 16),
 
-              switch (statusLower) {
-                case 'completed':
-                case 'success':
-                case 'paid':
-                  statusColor = Colors.green.shade600;
-                  statusIcon = Icons.check_circle;
-                  statusLabel = 'Paid';
-                  break;
-                case 'pending':
-                case 'processing':
-                  statusColor = Colors.amber.shade700;
-                  statusIcon = Icons.schedule;
-                  statusLabel = 'Pending';
-                  break;
-                case 'failed':
-                case 'error':
-                  statusColor = Colors.red.shade600;
-                  statusIcon = Icons.cancel;
-                  statusLabel = 'Failed';
-                  break;
-                case 'refunded':
-                  statusColor = Colors.blue.shade600;
-                  statusIcon = Icons.replay;
-                  statusLabel = 'Refunded';
-                  break;
-                case 'cancelled':
-                  statusColor = Colors.grey.shade600;
-                  statusIcon = Icons.block;
-                  statusLabel = 'Cancelled';
-                  break;
-                default:
-                  statusColor = Colors.grey.shade500;
-                  statusIcon = Icons.info_outline;
-                  statusLabel =
-                      payment.status.isNotEmpty
-                          ? payment.status[0].toUpperCase() +
-                              payment.status.substring(1)
-                          : 'Unknown';
-              }
+            // Dates
+            Text(
+              'Dates',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: colors.onSurface,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _infoRow(colors, 'Applied', _formatDate(app.createdAt)),
+            if (app.approvedAt != null)
+              _infoRow(colors, 'Approved', _formatDate(app.approvedAt!)),
+            if (app.lastPaymentAt != null)
+              _infoRow(colors, 'Last Payment', _formatDate(app.lastPaymentAt!)),
+            if (app.completedAt != null)
+              _infoRow(colors, 'Completed', _formatDate(app.completedAt!)),
+            const SizedBox(height: 24),
 
-              return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                decoration: BoxDecoration(
-                  color: colors.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: colors.outline.withOpacity(0.12),
-                    width: 1,
+            // Pay button
+            if (canPay)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => _showPaymentBottomSheet(context, ref, app),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colors.primary,
+                    foregroundColor: colors.onPrimary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
-                ),
-                child: IntrinsicHeight(
-                  child: Row(
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Left status accent bar
-                      Container(
-                        width: 4,
-                        decoration: BoxDecoration(
-                          color: statusColor,
-                          borderRadius: const BorderRadius.horizontal(
-                            left: Radius.circular(12),
-                          ),
-                        ),
-                      ),
-                      // Main content
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Top row: payment number + amount + status
-                              Row(
-                                children: [
-                                  // Payment number
-                                  Container(
-                                    width: 26,
-                                    height: 26,
-                                    decoration: BoxDecoration(
-                                      color: colors.primary.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(7),
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        '#${index + 1}',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                          color: colors.primary,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  // Amount
-                                  Expanded(
-                                    child: Text(
-                                      formatCurrency(payment.amount),
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                        color: colors.onSurface,
-                                      ),
-                                    ),
-                                  ),
-                                  // Status badge
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: statusColor.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          statusIcon,
-                                          size: 13,
-                                          color: statusColor,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          statusLabel,
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                            color: statusColor,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              // Bottom row: date & payment method
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.calendar_today_outlined,
-                                    size: 13,
-                                    color: colors.onSurface.withOpacity(0.4),
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    payment.createdAt != null
-                                        ? _formatDateTime(payment.createdAt!)
-                                        : 'Date unavailable',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: colors.onSurface.withOpacity(0.5),
-                                    ),
-                                  ),
-                                  if (payment.paymentMethod != null) ...[
-                                    const Spacer(),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: colors.primary.withOpacity(0.08),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            _paymentMethodIcon(
-                                              payment.paymentMethod!,
-                                            ),
-                                            size: 12,
-                                            color: colors.primary,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            _paymentMethodLabel(
-                                              payment.paymentMethod!,
-                                            ),
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w500,
-                                              color: colors.primary,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ],
-                          ),
+                      Icon(Icons.payment, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Make Payment',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],
                   ),
                 ),
-              );
-            }),
-          ],
-          const SizedBox(height: 16),
-
-          // Dates
-          Text(
-            'Dates',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: colors.onSurface,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _infoRow(colors, 'Applied', _formatDate(app.createdAt)),
-          if (app.approvedAt != null)
-            _infoRow(colors, 'Approved', _formatDate(app.approvedAt!)),
-          if (app.lastPaymentAt != null)
-            _infoRow(colors, 'Last Payment', _formatDate(app.lastPaymentAt!)),
-          if (app.completedAt != null)
-            _infoRow(colors, 'Completed', _formatDate(app.completedAt!)),
-          const SizedBox(height: 24),
-
-          // Pay button
-          if (canPay)
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => _showPaymentBottomSheet(context, ref, app),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colors.primary,
-                  foregroundColor: colors.onPrimary,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.payment, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'Make Payment',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
               ),
-            ),
-          const SizedBox(height: 24),
-        ],
+            const SizedBox(height: 24),
+          ],
+        ),
       ),
     );
   }
@@ -701,18 +507,13 @@ class LaybyDetailsScreen extends ConsumerWidget {
     final monthly = double.tryParse(app.monthlyAmount) ?? 0;
     final balance = double.tryParse(app.balanceRemaining) ?? 0;
 
-    // Get the user's selected currency for exchange rate conversion
+    // Get the user's selected currency code for the payment API
     final selectedCurrency = ref.read(selectedCurrencyProvider);
-    final exchangeRate = selectedCurrency?.exchangeRateAsDouble ?? 1.0;
     final currencyCode = selectedCurrency?.code ?? 'USD';
 
-    // Convert base-currency amounts to the user's selected currency
-    final convertedMonthly = monthly * exchangeRate;
-    final convertedBalance = balance * exchangeRate;
-    final suggestedAmount =
-        convertedMonthly > convertedBalance
-            ? convertedBalance
-            : convertedMonthly;
+    // Layby amounts from the API are already in the store's base currency (ZAR).
+    // Do NOT multiply by exchange rate — that inflates the suggested amount.
+    final suggestedAmount = monthly > balance ? balance : monthly;
 
     final formatCurrency = ref.watch(currencyFormattingProvider);
 
@@ -726,7 +527,7 @@ class LaybyDetailsScreen extends ConsumerWidget {
         return _PaymentMethodSheet(
           app: app,
           suggestedAmount: suggestedAmount,
-          balance: convertedBalance,
+          balance: balance,
           formatCurrency: formatCurrency,
           onPaymentSubmit: (paymentMethod, amount) async {
             Navigator.pop(ctx);
@@ -816,6 +617,22 @@ class LaybyDetailsScreen extends ConsumerWidget {
     String Function(double) formatCurrency,
   ) {
     final colors = Theme.of(context).colorScheme;
+
+    // Same bank accounts as checkout
+    final bankAccounts = [
+      {
+        'name': 'CBZ – Zimbabwe',
+        'account': '12626684910022',
+        'bic': 'COBZZWHAXXX',
+      },
+      {'name': 'FNB – Zambia', 'account': '63100161916', 'bic': 'FIRNZMLX XXX'},
+      {
+        'name': 'FNB – South Africa',
+        'account': '63023044695',
+        'bic': 'FIRNZAJJ',
+      },
+    ];
+
     showDialog(
       context: context,
       builder:
@@ -830,103 +647,99 @@ class LaybyDetailsScreen extends ConsumerWidget {
                 const Text('Bank Transfer Details'),
               ],
             ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.green.withOpacity(0.2)),
-                  ),
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.check_circle,
-                        color: Colors.green,
-                        size: 32,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Payment recorded!',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: colors.onSurface,
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.green.withOpacity(0.2)),
+                    ),
+                    child: Column(
+                      children: [
+                        const Icon(
+                          Icons.check_circle,
+                          color: Colors.green,
+                          size: 32,
                         ),
-                      ),
-                      Text(
-                        'Amount: ${formatCurrency(amount)}',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: colors.onSurface.withOpacity(0.6),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Please transfer the amount to one of these accounts:',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: colors.onSurface.withOpacity(0.7),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _buildBankDetail(
-                  context,
-                  'FNB Bank',
-                  'Account: 62925950498',
-                  'Branch Code: 250655',
-                  'Ref: ${app.applicationNumber}',
-                ),
-                const SizedBox(height: 8),
-                _buildBankDetail(
-                  context,
-                  'CBZ Bank',
-                  'Account: 01131244540028',
-                  'Branch: Union Ave',
-                  'Ref: ${app.applicationNumber}',
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.amber.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.info_outline,
-                        color: Colors.amber,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Use your application number as the payment reference',
+                        const SizedBox(height: 6),
+                        Text(
+                          'Payment recorded!',
                           style: TextStyle(
-                            fontSize: 12,
-                            color: colors.onSurface.withOpacity(0.7),
+                            fontWeight: FontWeight.w600,
+                            color: colors.onSurface,
                           ),
                         ),
-                      ),
-                    ],
+                        Text(
+                          'Amount: ${formatCurrency(amount)}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: colors.onSurface.withOpacity(0.6),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  Text(
+                    'Please transfer the exact amount to one of the following accounts:',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: colors.onSurface.withOpacity(0.7),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ...bankAccounts.map(
+                    (acc) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _buildBankDetail(
+                        context,
+                        acc['name']!,
+                        'Account: ${acc['account']!}',
+                        'BIC: ${acc['bic']!}',
+                        'Ref: ${app.applicationNumber}',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.info_outline,
+                          color: Colors.amber,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Use your application number as the payment reference',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: colors.onSurface.withOpacity(0.7),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
             actions: [
               ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  // Refresh the details
-                },
+                onPressed: () => Navigator.pop(ctx),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: colors.primary,
                   foregroundColor: colors.onPrimary,
@@ -1020,7 +833,7 @@ class LaybyDetailsScreen extends ConsumerWidget {
             ),
             title: Row(
               children: [
-                Icon(Icons.location_on, color: colors.primary),
+                Icon(Icons.store, color: colors.primary),
                 const SizedBox(width: 8),
                 const Text('Office Payment'),
               ],
@@ -1064,96 +877,10 @@ class LaybyDetailsScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Visit our nearest office to complete your payment:',
+                  'Visit your nearest Raines Africa office to complete your payment.',
                   style: TextStyle(
                     fontSize: 13,
                     color: colors.onSurface.withOpacity(0.7),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colors.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: colors.outline.withOpacity(0.15)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.store, size: 18, color: colors.primary),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Raines Africa Office',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              color: colors.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            Icons.location_on_outlined,
-                            size: 16,
-                            color: colors.onSurface.withOpacity(0.5),
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              '1st Floor, Batanai Gardens,\nFirst Street & Jason Moyo Ave,\nHarare, Zimbabwe',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: colors.onSurface,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.access_time,
-                            size: 16,
-                            color: colors.onSurface.withOpacity(0.5),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Mon–Fri: 8:00 AM – 5:00 PM',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: colors.onSurface,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.phone_outlined,
-                            size: 16,
-                            color: colors.onSurface.withOpacity(0.5),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '+263 78 222 3456',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: colors.onSurface,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -1201,6 +928,507 @@ class LaybyDetailsScreen extends ConsumerWidget {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+//  Payment History Section with filter chips, stats & pagination
+// ═══════════════════════════════════════════════════════════════════
+
+enum _PaymentFilter { all, paid, pending, failed }
+
+class _PaymentHistorySection extends StatefulWidget {
+  final List<LaybyPayment> payments;
+  final String Function(double) formatCurrency;
+  final String Function(String) formatDateTime;
+  final IconData Function(String) paymentMethodIcon;
+  final String Function(String) paymentMethodLabel;
+
+  const _PaymentHistorySection({
+    required this.payments,
+    required this.formatCurrency,
+    required this.formatDateTime,
+    required this.paymentMethodIcon,
+    required this.paymentMethodLabel,
+  });
+
+  @override
+  State<_PaymentHistorySection> createState() => _PaymentHistorySectionState();
+}
+
+class _PaymentHistorySectionState extends State<_PaymentHistorySection> {
+  _PaymentFilter _activeFilter = _PaymentFilter.all;
+  static const int _pageSize = 5;
+  int _visibleCount = _pageSize;
+
+  // ── Helpers ──
+
+  List<LaybyPayment> get _filteredPayments {
+    switch (_activeFilter) {
+      case _PaymentFilter.paid:
+        return widget.payments.where((p) => _isPaid(p.status)).toList();
+      case _PaymentFilter.pending:
+        return widget.payments.where((p) => _isPending(p.status)).toList();
+      case _PaymentFilter.failed:
+        return widget.payments.where((p) => _isFailed(p.status)).toList();
+      case _PaymentFilter.all:
+        return widget.payments;
+    }
+  }
+
+  static bool _isPaid(String status) {
+    final s = status.toLowerCase();
+    return s == 'completed' || s == 'success' || s == 'paid';
+  }
+
+  static bool _isPending(String status) {
+    final s = status.toLowerCase();
+    return s == 'pending' || s == 'processing';
+  }
+
+  static bool _isFailed(String status) {
+    final s = status.toLowerCase();
+    return s == 'failed' || s == 'error' || s == 'cancelled' || s == 'refunded';
+  }
+
+  int _countByFilter(_PaymentFilter f) {
+    switch (f) {
+      case _PaymentFilter.all:
+        return widget.payments.length;
+      case _PaymentFilter.paid:
+        return widget.payments.where((p) => _isPaid(p.status)).length;
+      case _PaymentFilter.pending:
+        return widget.payments.where((p) => _isPending(p.status)).length;
+      case _PaymentFilter.failed:
+        return widget.payments.where((p) => _isFailed(p.status)).length;
+    }
+  }
+
+  ({Color color, IconData icon, String label}) _statusInfo(String status) {
+    final s = status.toLowerCase();
+    if (_isPaid(s)) {
+      return (
+        color: Colors.green.shade600,
+        icon: Icons.check_circle,
+        label: 'Paid',
+      );
+    } else if (_isPending(s)) {
+      return (
+        color: Colors.amber.shade700,
+        icon: Icons.schedule,
+        label: 'Pending',
+      );
+    } else if (s == 'failed' || s == 'error') {
+      return (color: Colors.red.shade600, icon: Icons.cancel, label: 'Failed');
+    } else if (s == 'refunded') {
+      return (
+        color: Colors.blue.shade600,
+        icon: Icons.replay,
+        label: 'Refunded',
+      );
+    } else if (s == 'cancelled') {
+      return (
+        color: Colors.grey.shade600,
+        icon: Icons.block,
+        label: 'Cancelled',
+      );
+    }
+    return (
+      color: Colors.grey.shade500,
+      icon: Icons.info_outline,
+      label:
+          status.isNotEmpty
+              ? status[0].toUpperCase() + status.substring(1)
+              : 'Unknown',
+    );
+  }
+
+  // ── Build ──
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final filtered = _filteredPayments;
+    final shown = filtered.take(_visibleCount).toList();
+    final hasMore = _visibleCount < filtered.length;
+
+    // Summary
+    final totalForFilter = filtered.fold<double>(0, (sum, p) => sum + p.amount);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Title
+        Text(
+          'Payment History',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: colors.onSurface,
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // ── Filter Chips ──
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children:
+                _PaymentFilter.values.map((f) {
+                  final isActive = _activeFilter == f;
+                  final count = _countByFilter(f);
+                  final label = switch (f) {
+                    _PaymentFilter.all => 'All',
+                    _PaymentFilter.paid => 'Paid',
+                    _PaymentFilter.pending => 'Pending',
+                    _PaymentFilter.failed => 'Failed',
+                  };
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: FilterChip(
+                      selected: isActive,
+                      label: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(label),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color:
+                                  isActive
+                                      ? colors.onPrimary.withOpacity(0.2)
+                                      : colors.onSurface.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '$count',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color:
+                                    isActive
+                                        ? colors.onPrimary
+                                        : colors.onSurface.withOpacity(0.6),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      selectedColor: colors.primary,
+                      backgroundColor: colors.surfaceContainerHigh,
+                      checkmarkColor: colors.onPrimary,
+                      labelStyle: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: isActive ? colors.onPrimary : colors.onSurface,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        side: BorderSide(
+                          color:
+                              isActive
+                                  ? colors.primary
+                                  : colors.outline.withOpacity(0.15),
+                        ),
+                      ),
+                      showCheckmark: false,
+                      onSelected: (_) {
+                        setState(() {
+                          _activeFilter = f;
+                          _visibleCount = _pageSize; // reset pagination
+                        });
+                      },
+                    ),
+                  );
+                }).toList(),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // ── Summary Stats ──
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: colors.primary.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.receipt_long, size: 16, color: colors.primary),
+              const SizedBox(width: 8),
+              Text(
+                '${filtered.length} payment${filtered.length == 1 ? '' : 's'}',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: colors.onSurface,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'Total: ${widget.formatCurrency(totalForFilter)}',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: colors.primary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // ── Payment Cards or Empty State ──
+        if (filtered.isEmpty)
+          _buildEmptyState(colors)
+        else ...[
+          ...shown.asMap().entries.map((entry) {
+            final index = entry.key;
+            final payment = entry.value;
+            return _buildPaymentCard(context, payment, index + 1, colors);
+          }),
+          // ── Show More / Show Less ──
+          if (hasMore)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 4),
+              child: Center(
+                child: TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _visibleCount += _pageSize;
+                    });
+                  },
+                  icon: const Icon(Icons.expand_more, size: 20),
+                  label: Text(
+                    'Show More (${filtered.length - shown.length} remaining)',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (!hasMore && filtered.length > _pageSize)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 4),
+              child: Center(
+                child: TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _visibleCount = _pageSize;
+                    });
+                  },
+                  icon: const Icon(Icons.expand_less, size: 20),
+                  label: const Text(
+                    'Show Less',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildEmptyState(ColorScheme colors) {
+    final label = switch (_activeFilter) {
+      _PaymentFilter.all => 'No payments recorded yet',
+      _PaymentFilter.paid => 'No paid payments yet',
+      _PaymentFilter.pending => 'No pending payments',
+      _PaymentFilter.failed => 'No failed payments',
+    };
+    final icon = switch (_activeFilter) {
+      _PaymentFilter.all => Icons.receipt_long_outlined,
+      _PaymentFilter.paid => Icons.check_circle_outline,
+      _PaymentFilter.pending => Icons.schedule,
+      _PaymentFilter.failed => Icons.cancel_outlined,
+    };
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      child: Column(
+        children: [
+          Icon(icon, size: 40, color: colors.onSurface.withOpacity(0.25)),
+          const SizedBox(height: 10),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: colors.onSurface.withOpacity(0.4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaymentCard(
+    BuildContext context,
+    LaybyPayment payment,
+    int displayNumber,
+    ColorScheme colors,
+  ) {
+    final info = _statusInfo(payment.status);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.outline.withOpacity(0.12), width: 1),
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            // Left status accent bar
+            Container(
+              width: 4,
+              decoration: BoxDecoration(
+                color: info.color,
+                borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(12),
+                ),
+              ),
+            ),
+            // Main content
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Top row: number + amount + status
+                    Row(
+                      children: [
+                        Container(
+                          width: 26,
+                          height: 26,
+                          decoration: BoxDecoration(
+                            color: colors.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                          child: Center(
+                            child: Text(
+                              '#$displayNumber',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: colors.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            widget.formatCurrency(payment.amount),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: colors.onSurface,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: info.color.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(info.icon, size: 13, color: info.color),
+                              const SizedBox(width: 4),
+                              Text(
+                                info.label,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: info.color,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Bottom row: date & payment method
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_today_outlined,
+                          size: 13,
+                          color: colors.onSurface.withOpacity(0.4),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          payment.createdAt != null
+                              ? widget.formatDateTime(payment.createdAt!)
+                              : 'Date unavailable',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colors.onSurface.withOpacity(0.5),
+                          ),
+                        ),
+                        if (payment.paymentMethod != null) ...[
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colors.primary.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  widget.paymentMethodIcon(
+                                    payment.paymentMethod!,
+                                  ),
+                                  size: 12,
+                                  color: colors.primary,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  widget.paymentMethodLabel(
+                                    payment.paymentMethod!,
+                                  ),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: colors.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Bottom sheet with payment method selection using checkout payment methods
 class _PaymentMethodSheet extends ConsumerStatefulWidget {
   final LaybyApplication app;
@@ -1227,17 +1455,46 @@ class _PaymentMethodSheetState extends ConsumerState<_PaymentMethodSheet> {
   PaymentMethodEntity? _selectedMethod;
   late TextEditingController _amountController;
   bool _isProcessing = false;
+  String? _amountError;
+  late double _convertedBalance;
 
   @override
   void initState() {
     super.initState();
+    // Convert suggestedAmount to the selected currency using exchange rate
+    // so the pre-filled value matches the currency symbol shown
+    final selectedCurrency = ref.read(selectedCurrencyProvider);
+    final exchangeRate = selectedCurrency?.exchangeRateAsDouble ?? 1.0;
+    final convertedAmount = widget.suggestedAmount * exchangeRate;
+    _convertedBalance = widget.balance * exchangeRate;
     _amountController = TextEditingController(
-      text: widget.suggestedAmount.toStringAsFixed(2),
+      text: convertedAmount.toStringAsFixed(2),
     );
+    _amountController.addListener(_validateAmount);
+  }
+
+  void _validateAmount() {
+    final text = _amountController.text;
+    final amount = double.tryParse(text);
+    setState(() {
+      if (text.isEmpty) {
+        _amountError = null;
+      } else if (amount == null) {
+        _amountError = 'Please enter a valid number';
+      } else if (amount <= 0) {
+        _amountError = 'Amount must be greater than 0';
+      } else if (amount > _convertedBalance) {
+        _amountError =
+            'Amount exceeds balance of ${widget.formatCurrency(widget.balance)}';
+      } else {
+        _amountError = null;
+      }
+    });
   }
 
   @override
   void dispose() {
+    _amountController.removeListener(_validateAmount);
     _amountController.dispose();
     super.dispose();
   }
@@ -1318,7 +1575,13 @@ class _PaymentMethodSheetState extends ConsumerState<_PaymentMethodSheet> {
                 Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: colors.outline.withOpacity(0.3)),
+                    border: Border.all(
+                      color:
+                          _amountError != null
+                              ? colors.error
+                              : colors.outline.withOpacity(0.3),
+                      width: _amountError != null ? 1.5 : 1.0,
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -1341,7 +1604,10 @@ class _PaymentMethodSheetState extends ConsumerState<_PaymentMethodSheet> {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: colors.onSurface,
+                            color:
+                                _amountError != null
+                                    ? colors.error
+                                    : colors.onSurface,
                           ),
                         ),
                       ),
@@ -1361,13 +1627,27 @@ class _PaymentMethodSheetState extends ConsumerState<_PaymentMethodSheet> {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
-                            color: colors.onSurface,
+                            color:
+                                _amountError != null
+                                    ? colors.error
+                                    : colors.onSurface,
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
+                if (_amountError != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    _amountError!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colors.error,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 6),
                 Text(
                   'Suggested: ${widget.formatCurrency(widget.suggestedAmount)} (Monthly payment)',
@@ -1383,7 +1663,9 @@ class _PaymentMethodSheetState extends ConsumerState<_PaymentMethodSheet> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed:
-                        (_isProcessing || _selectedMethod == null)
+                        (_isProcessing ||
+                                _selectedMethod == null ||
+                                _amountError != null)
                             ? null
                             : _handleSubmit,
                     style: ElevatedButton.styleFrom(
@@ -1432,7 +1714,11 @@ class _PaymentMethodSheetState extends ConsumerState<_PaymentMethodSheet> {
       );
       return;
     }
-    if (amount > widget.balance) {
+    // Convert balance to the selected currency for comparison
+    final selectedCurrency = ref.read(selectedCurrencyProvider);
+    final exchangeRate = selectedCurrency?.exchangeRateAsDouble ?? 1.0;
+    final convertedBalance = widget.balance * exchangeRate;
+    if (amount > convertedBalance) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(

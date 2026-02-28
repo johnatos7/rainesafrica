@@ -243,7 +243,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
             height: ResponsiveUtils.productSectionHeight(context),
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: recentItems.length,
               itemBuilder: (context, index) {
                 final item = recentItems[index];
@@ -257,12 +257,18 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                   salePrice: item.salePrice,
                   discount: item.discount,
                   reviewRatings: item.reviewRatings,
+                  estimatedDeliveryText: item.estimatedDeliveryText,
+                  isSaleEnable: item.isSaleEnable,
                   productThumbnail: ProductImageEntity(
                     id: 0,
                     imageUrl: item.imageUrl,
                   ),
                 );
-                return ProductCard(product: product);
+                return ProductCard(
+                  product: product,
+                  overrideColourSlugs: item.colourSlugs,
+                  overrideHasMoreOptions: item.hasMoreOptions,
+                );
               },
             ),
           ),

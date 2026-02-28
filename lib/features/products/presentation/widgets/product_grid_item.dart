@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/data/models/product_model.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/presentation/screens/product_details_screen.dart';
+import 'package:flutter_riverpod_clean_architecture/features/products/presentation/widgets/color_attribute_indicator.dart';
 import 'package:flutter_riverpod_clean_architecture/features/currency/presentation/providers/currency_provider.dart';
 
 class ProductGridItem extends ConsumerWidget {
@@ -71,10 +72,13 @@ class ProductGridItem extends ConsumerWidget {
                           ref.watch(currencyFormattingProvider)(
                             product.salePrice!,
                           ),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: Colors.green,
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? const Color(0xFF66BB6A)
+                                    : Colors.green,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -121,6 +125,8 @@ class ProductGridItem extends ConsumerWidget {
                       ),
                     ),
                   ],
+                  // Colour & options indicator
+                  ColorAttributeIndicator(product: product),
                 ],
               ),
             ),

@@ -39,6 +39,7 @@ class OrderEntity {
   final List<OrderProductEntity> products;
   final List<OrderNoteEntity> notes;
   final OrderSummaryEntity? summary;
+  final String? qrCodeUrl;
 
   const OrderEntity({
     required this.id,
@@ -78,67 +79,43 @@ class OrderEntity {
     required this.products,
     required this.notes,
     this.summary,
+    this.qrCodeUrl,
   });
 
   factory OrderEntity.fromJson(Map<String, dynamic> json) {
-    // Debug logging to identify null fields
-    print('🔍 ORDER JSON DEBUG:');
-    print(
-      '  - payment_method: ${json['payment_method']} (type: ${json['payment_method'].runtimeType})',
-    );
-    print(
-      '  - payment_status: ${json['payment_status']} (type: ${json['payment_status'].runtimeType})',
-    );
-    print(
-      '  - delivery_description: ${json['delivery_description']} (type: ${json['delivery_description'].runtimeType})',
-    );
-    print(
-      '  - currency: ${json['currency']} (type: ${json['currency'].runtimeType})',
-    );
-    print(
-      '  - currency_symbol: ${json['currency_symbol']} (type: ${json['currency_symbol'].runtimeType})',
-    );
-    print(
-      '  - created_at: ${json['created_at']} (type: ${json['created_at'].runtimeType})',
-    );
-
     return OrderEntity(
-      id: json['id'] as int,
-      orderNumber: json['order_number'] as int,
-      consumerId: json['consumer_id'] as int,
-      taxTotal: 0.0, // Always 0 - tax removed from orders
-      shippingTotal:
-          0.0, // Always 0 - shipping fee removed, delivery fee is separate
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      orderNumber: (json['order_number'] as num?)?.toInt() ?? 0,
+      consumerId: (json['consumer_id'] as num?)?.toInt() ?? 0,
+      taxTotal: 0.0,
+      shippingTotal: 0.0,
       pointsAmount: (json['points_amount'] as num?)?.toDouble() ?? 0.0,
       walletBalance: (json['wallet_balance'] as num?)?.toDouble() ?? 0.0,
       amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
       total: (json['total'] as num?)?.toDouble() ?? 0.0,
       couponTotalDiscount:
           (json['coupon_total_discount'] as num?)?.toDouble() ?? 0.0,
-      paymentMethod: json['payment_method'] as String? ?? '',
-      paymentStatus: json['payment_status'] as String? ?? '',
-      storeId: json['store_id'] as int?,
-      billingAddressId: json['billing_address_id'] as int? ?? 0,
-      shippingAddressId: json['shipping_address_id'] as int? ?? 0,
-      deliveryDescription: json['delivery_description'] as String? ?? '',
-      deliveryInterval: json['delivery_interval'] as String?,
-      orderStatusId: json['order_status_id'] as int? ?? 0,
-      couponId: json['coupon_id'] as int?,
-      parentId: json['parent_id'] as int?,
-      createdById: json['created_by_id'] as int? ?? 0,
-      invoiceUrl: json['invoice_url'] as String?,
-      status: json['status'] as int? ?? 0,
+      paymentMethod: json['payment_method']?.toString() ?? '',
+      paymentStatus: json['payment_status']?.toString() ?? '',
+      storeId: (json['store_id'] as num?)?.toInt(),
+      billingAddressId: (json['billing_address_id'] as num?)?.toInt() ?? 0,
+      shippingAddressId: (json['shipping_address_id'] as num?)?.toInt() ?? 0,
+      deliveryDescription: json['delivery_description']?.toString() ?? '',
+      deliveryInterval: json['delivery_interval']?.toString(),
+      orderStatusId: (json['order_status_id'] as num?)?.toInt() ?? 0,
+      couponId: (json['coupon_id'] as num?)?.toInt(),
+      parentId: (json['parent_id'] as num?)?.toInt(),
+      createdById: (json['created_by_id'] as num?)?.toInt() ?? 0,
+      invoiceUrl: json['invoice_url']?.toString(),
+      status: (json['status'] as num?)?.toInt() ?? 0,
       createdAt:
-          DateTime.tryParse(json['created_at'] as String? ?? '') ??
+          DateTime.tryParse(json['created_at']?.toString() ?? '') ??
           DateTime.now(),
       deliveryPrice: (json['delivery_price'] as num?)?.toDouble() ?? 0.0,
-      fastShippingTotal:
-          json['fast_shipping_total'] != null
-              ? (json['fast_shipping_total'] as num).toDouble()
-              : null,
-      note: json['note'] as String?,
-      currency: json['currency'] as String? ?? 'USD',
-      currencySymbol: json['currency_symbol'] as String? ?? '\$',
+      fastShippingTotal: (json['fast_shipping_total'] as num?)?.toDouble(),
+      note: json['note']?.toString(),
+      currency: json['currency']?.toString() ?? 'USD',
+      currencySymbol: json['currency_symbol']?.toString() ?? '\$',
       exchangeRate: (json['exchange_rate'] as num?)?.toDouble() ?? 1.0,
       consumer:
           json['consumer'] != null
@@ -193,6 +170,7 @@ class OrderEntity {
                 json['summary'] as Map<String, dynamic>,
               )
               : null,
+      qrCodeUrl: json['qr_code_url']?.toString(),
     );
   }
 
@@ -235,6 +213,7 @@ class OrderEntity {
       'products': products.map((e) => e.toJson()).toList(),
       'notes': notes.map((e) => e.toJson()).toList(),
       if (summary != null) 'summary': summary!.toJson(),
+      'qr_code_url': qrCodeUrl,
     };
   }
 }
@@ -324,22 +303,22 @@ class ConsumerEntity {
   });
 
   factory ConsumerEntity.fromJson(Map<String, dynamic> json) {
-    // Debug logging for ConsumerEntity
-    print('🔍 CONSUMER JSON DEBUG:');
-    print('  - name: ${json['name']} (type: ${json['name'].runtimeType})');
-    print('  - email: ${json['email']} (type: ${json['email'].runtimeType})');
-    print(
-      '  - country_code: ${json['country_code']} (type: ${json['country_code'].runtimeType})',
-    );
-
     return ConsumerEntity(
-      id: json['id'] as int,
-      name: json['name'] as String? ?? '',
-      email: json['email'] as String? ?? '',
-      countryCode: json['country_code'] as String? ?? '',
-      phone: json['phone'] as int?,
-      role: RoleEntity.fromJson(json['role'] as Map<String, dynamic>),
-      profileImage: json['profile_image'] as String?,
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      name: json['name']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      countryCode: json['country_code']?.toString() ?? '',
+      phone: (json['phone'] as num?)?.toInt(),
+      role:
+          json['role'] != null
+              ? RoleEntity.fromJson(json['role'] as Map<String, dynamic>)
+              : const RoleEntity(
+                id: 0,
+                name: '',
+                guardName: '',
+                systemReserve: 0,
+              ),
+      profileImage: json['profile_image']?.toString(),
     );
   }
 
@@ -370,18 +349,11 @@ class RoleEntity {
   });
 
   factory RoleEntity.fromJson(Map<String, dynamic> json) {
-    // Debug logging for RoleEntity
-    print('🔍 ROLE JSON DEBUG:');
-    print('  - name: ${json['name']} (type: ${json['name'].runtimeType})');
-    print(
-      '  - guard_name: ${json['guard_name']} (type: ${json['guard_name'].runtimeType})',
-    );
-
     return RoleEntity(
-      id: json['id'] as int,
-      name: json['name'] as String? ?? '',
-      guardName: json['guard_name'] as String? ?? '',
-      systemReserve: json['system_reserve'] as int? ?? 0,
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      name: json['name']?.toString() ?? '',
+      guardName: json['guard_name']?.toString() ?? '',
+      systemReserve: (json['system_reserve'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -409,16 +381,11 @@ class OrderStatusEntity {
   });
 
   factory OrderStatusEntity.fromJson(Map<String, dynamic> json) {
-    // Debug logging for OrderStatusEntity
-    print('🔍 ORDER_STATUS JSON DEBUG:');
-    print('  - name: ${json['name']} (type: ${json['name'].runtimeType})');
-    print('  - slug: ${json['slug']} (type: ${json['slug'].runtimeType})');
-
     return OrderStatusEntity(
-      id: json['id'] as int,
-      name: json['name'] as String? ?? '',
-      sequence: json['sequence'] as int? ?? 0,
-      slug: json['slug'] as String? ?? '',
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      name: json['name']?.toString() ?? '',
+      sequence: (json['sequence'] as num?)?.toInt() ?? 0,
+      slug: json['slug']?.toString() ?? '',
     );
   }
 
@@ -439,22 +406,11 @@ class StatusHistoryEntity {
   });
 
   factory StatusHistoryEntity.fromJson(Map<String, dynamic> json) {
-    // Debug logging for StatusHistoryEntity
-    print('🔍 STATUS_HISTORY JSON DEBUG:');
-    print(
-      '  - status: ${json['status']} (type: ${json['status'].runtimeType})',
-    );
-    print(
-      '  - created_at: ${json['created_at']} (type: ${json['created_at'].runtimeType})',
-    );
-
     return StatusHistoryEntity(
-      id: json['id'] as int,
-      status: json['status'] as String? ?? '',
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      status: json['status']?.toString() ?? '',
       createdAt:
-          DateTime.tryParse(
-            json['created_at'] as String? ?? DateTime.now().toIso8601String(),
-          ) ??
+          DateTime.tryParse(json['created_at']?.toString() ?? '') ??
           DateTime.now(),
     );
   }
@@ -480,13 +436,9 @@ class SubOrderEntity {
   });
 
   factory SubOrderEntity.fromJson(Map<String, dynamic> json) {
-    // Debug logging for SubOrderEntity
-    print('🔍 SUB_ORDER JSON DEBUG:');
-    print('  - name: ${json['name']} (type: ${json['name'].runtimeType})');
-
     return SubOrderEntity(
-      id: json['id'] as int,
-      name: json['name'] as String? ?? '',
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      name: json['name']?.toString() ?? '',
       amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
     );
   }
@@ -528,28 +480,35 @@ class OrderListResponse {
   });
 
   factory OrderListResponse.fromJson(Map<String, dynamic> json) {
+    // Parse orders with per-order try-catch so one bad order doesn't break the list
+    final rawOrders = json['data'] as List<dynamic>? ?? [];
+    final parsedOrders = <OrderEntity>[];
+    for (final entry in rawOrders) {
+      try {
+        parsedOrders.add(OrderEntity.fromJson(entry as Map<String, dynamic>));
+      } catch (e) {
+        print('⚠️ Skipping order due to parse error: $e');
+      }
+    }
+
     return OrderListResponse(
-      currentPage: json['current_page'] as int? ?? 1,
-      data:
-          (json['data'] as List<dynamic>?)
-              ?.map((e) => OrderEntity.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
-      firstPageUrl: json['first_page_url'] as String? ?? '',
-      from: json['from'] as int? ?? 0,
-      lastPage: json['last_page'] as int? ?? 1,
-      lastPageUrl: json['last_page_url'] as String? ?? '',
+      currentPage: (json['current_page'] as num?)?.toInt() ?? 1,
+      data: parsedOrders,
+      firstPageUrl: json['first_page_url']?.toString() ?? '',
+      from: (json['from'] as num?)?.toInt() ?? 0,
+      lastPage: (json['last_page'] as num?)?.toInt() ?? 1,
+      lastPageUrl: json['last_page_url']?.toString() ?? '',
       links:
           (json['links'] as List<dynamic>?)
               ?.map((e) => LinkEntity.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      nextPageUrl: json['next_page_url'] as String?,
-      path: json['path'] as String? ?? '',
-      perPage: json['per_page'] as int? ?? 10,
-      prevPageUrl: json['prev_page_url'] as String?,
-      to: json['to'] as int? ?? 0,
-      total: json['total'] as int? ?? 0,
+      nextPageUrl: json['next_page_url']?.toString(),
+      path: json['path']?.toString() ?? '',
+      perPage: (json['per_page'] as num?)?.toInt() ?? 10,
+      prevPageUrl: json['prev_page_url']?.toString(),
+      to: (json['to'] as num?)?.toInt() ?? 0,
+      total: (json['total'] as num?)?.toInt() ?? 0,
     );
   }
 

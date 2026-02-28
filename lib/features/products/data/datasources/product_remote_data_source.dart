@@ -49,6 +49,7 @@ abstract class ProductRemoteDataSource {
     int? limit,
     String? sortBy,
     String? sortOrder,
+    String? field,
   });
 
   /// Get featured products
@@ -357,6 +358,7 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
     int? limit,
     String? sortBy,
     String? sortOrder,
+    String? field,
   }) async {
     final queryParams = <String, dynamic>{
       'category': categorySlug,
@@ -365,8 +367,10 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
     };
 
     if (page != null) queryParams['page'] = page;
-    if (sortBy != null) queryParams['sortBy'] = sortBy;
-    if (sortOrder != null) queryParams['sortOrder'] = sortOrder;
+    if (field != null && field.isNotEmpty) queryParams['field'] = field;
+    if (sortBy != null && sortBy.isNotEmpty) queryParams['sortBy'] = sortBy;
+    if (sortOrder != null && sortOrder.isNotEmpty)
+      queryParams['sortOrder'] = sortOrder;
 
     print('Fetching paginated products by category slug: $categorySlug');
     print('Query params: $queryParams');
@@ -626,6 +630,57 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       print('Error in searchProducts: $e');
       print('Stack trace: $stackTrace');
       return [];
+    }
+  }
+
+  /// Search products with pagination info (returns total count from server)
+  Future<PaginatedProductsModel> searchProductsPaginated({
+    required String query,
+    int? page,
+    int? limit,
+    String? sku,
+    String? price,
+    int? rating,
+    String? field,
+    String? sortBy,
+  }) async {
+    try {
+      final queryParams = <String, dynamic>{'search': query, 'status': 1};
+
+      if (page != null) queryParams['page'] = page;
+      if (limit != null) queryParams['paginate'] = limit;
+      if (field != null && field.isNotEmpty) queryParams['field'] = field;
+      if (sortBy != null && sortBy.isNotEmpty) queryParams['sortBy'] = sortBy;
+      if (sku != null && sku.isNotEmpty) queryParams['sku'] = sku;
+      if (price != null && price.isNotEmpty) queryParams['price'] = price;
+      if (rating != null && rating > 0) queryParams['rating'] = rating;
+
+      final response = await _apiClient.get(
+        '/api/product',
+        queryParameters: queryParams,
+      );
+
+      if (response is Map<String, dynamic>) {
+        return PaginatedProductsModel.fromJson(response);
+      }
+
+      return PaginatedProductsModel.fromJson({
+        'data': [],
+        'current_page': 1,
+        'last_page': 1,
+        'per_page': limit ?? 20,
+        'total': 0,
+      });
+    } catch (e, stackTrace) {
+      print('Error in searchProductsPaginated: $e');
+      print('Stack trace: $stackTrace');
+      return PaginatedProductsModel.fromJson({
+        'data': [],
+        'current_page': 1,
+        'last_page': 1,
+        'per_page': limit ?? 20,
+        'total': 0,
+      });
     }
   }
 

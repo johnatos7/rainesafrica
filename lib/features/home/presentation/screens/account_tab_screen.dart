@@ -11,6 +11,7 @@ import 'package:flutter_riverpod_clean_architecture/features/orders/presentation
 import 'package:flutter_riverpod_clean_architecture/features/orders/presentation/screens/return_list_screen.dart';
 import 'package:flutter_riverpod_clean_architecture/features/payment/presentation/screens/banking_details_screen.dart';
 import 'package:flutter_riverpod_clean_architecture/features/home/presentation/screens/about_screen.dart';
+import 'package:flutter_riverpod_clean_architecture/features/home/presentation/screens/collection_points_screen.dart';
 import 'package:flutter_riverpod_clean_architecture/core/presentation/widgets/theme_toggle_widget.dart';
 
 class AccountTabScreen extends ConsumerWidget {
@@ -92,6 +93,36 @@ class AccountTabScreen extends ConsumerWidget {
                             ),
                             _buildAccountListItem(
                               context,
+                              Icons.calendar_today_outlined,
+                              'My Laybys',
+                              'Buy now, pay later applications',
+                              () {
+                                if (authState.isAuthenticated) {
+                                  context.push(AppConstants.laybyRoute);
+                                } else {
+                                  context.push(
+                                    '${AppConstants.loginRoute}?redirect=${AppConstants.laybyRoute}',
+                                  );
+                                }
+                              },
+                            ),
+                            _buildAccountListItem(
+                              context,
+                              Icons.store_outlined,
+                              'Collection Points',
+                              'Find pickup locations near you',
+                              () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) =>
+                                            const CollectionPointsScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                            _buildAccountListItem(
+                              context,
                               Icons.notifications_outlined,
                               'Notifications',
                               'Manage your alerts',
@@ -107,18 +138,42 @@ class AccountTabScreen extends ConsumerWidget {
                             ),
                             _buildAccountListItem(
                               context,
-                              Icons.person_outline,
-                              'Update Profile',
-                              'Edit your account information',
+                              Icons.account_balance_wallet_outlined,
+                              'My Wallet',
+                              'Balance and payment methods',
                               () {
                                 if (authState.isAuthenticated) {
-                                  _showUpdateProfileDialog(context, ref);
+                                  context.push(AppConstants.walletRoute);
                                 } else {
                                   context.push(
-                                    '${AppConstants.loginRoute}?redirect=${AppConstants.settingsRoute}',
+                                    '${AppConstants.loginRoute}?redirect=${AppConstants.walletRoute}',
                                   );
                                 }
                               },
+                            ),
+                            _buildAccountListItem(
+                              context,
+                              Icons.support_agent_outlined,
+                              'Support Tickets',
+                              'Get help from our team',
+                              () {
+                                if (authState.isAuthenticated) {
+                                  context.push(AppConstants.ticketsRoute);
+                                } else {
+                                  context.push(
+                                    '${AppConstants.loginRoute}?redirect=${AppConstants.ticketsRoute}',
+                                  );
+                                }
+                              },
+                            ),
+                            _buildAccountListItem(
+                              context,
+                              Icons.currency_exchange_outlined,
+                              'Currency',
+                              currencyState.selectedCurrency != null
+                                  ? '${currencyState.selectedCurrency!.code} (${currencyState.selectedCurrency!.symbol})'
+                                  : 'Select your preferred currency',
+                              () => _showCurrencySelectionDialog(context, ref),
                             ),
                             _buildAccountListItem(
                               context,
@@ -169,6 +224,21 @@ class AccountTabScreen extends ConsumerWidget {
                           delegate: SliverChildListDelegate([
                             _buildAccountListItem(
                               context,
+                              Icons.person_outline,
+                              'Update Profile',
+                              'Edit your account information',
+                              () {
+                                if (authState.isAuthenticated) {
+                                  _showUpdateProfileDialog(context, ref);
+                                } else {
+                                  context.push(
+                                    '${AppConstants.loginRoute}?redirect=${AppConstants.settingsRoute}',
+                                  );
+                                }
+                              },
+                            ),
+                            _buildAccountListItem(
+                              context,
                               Icons.location_on_outlined,
                               'Address Book',
                               'Manage your addresses',
@@ -190,21 +260,6 @@ class AccountTabScreen extends ConsumerWidget {
                             ),
                             _buildAccountListItem(
                               context,
-                              Icons.account_balance_wallet_outlined,
-                              'My Wallet',
-                              'Balance and payment methods',
-                              () {
-                                if (authState.isAuthenticated) {
-                                  context.push(AppConstants.walletRoute);
-                                } else {
-                                  context.push(
-                                    '${AppConstants.loginRoute}?redirect=${AppConstants.walletRoute}',
-                                  );
-                                }
-                              },
-                            ),
-                            _buildAccountListItem(
-                              context,
                               Icons.card_giftcard_outlined,
                               'Gift Cards & Vouchers',
                               'Redeem and manage gift cards',
@@ -214,21 +269,6 @@ class AccountTabScreen extends ConsumerWidget {
                                 } else {
                                   context.push(
                                     '${AppConstants.loginRoute}?redirect=${AppConstants.giftCardsRoute}',
-                                  );
-                                }
-                              },
-                            ),
-                            _buildAccountListItem(
-                              context,
-                              Icons.calendar_today_outlined,
-                              'My Laybys',
-                              'Buy now, pay later applications',
-                              () {
-                                if (authState.isAuthenticated) {
-                                  context.push(AppConstants.laybyRoute);
-                                } else {
-                                  context.push(
-                                    '${AppConstants.loginRoute}?redirect=${AppConstants.laybyRoute}',
                                   );
                                 }
                               },
@@ -265,21 +305,6 @@ class AccountTabScreen extends ConsumerWidget {
                                 } else {
                                   context.push(
                                     '${AppConstants.loginRoute}?redirect=/banking-details',
-                                  );
-                                }
-                              },
-                            ),
-                            _buildAccountListItem(
-                              context,
-                              Icons.support_agent_outlined,
-                              'Support Tickets',
-                              'Get help from our team',
-                              () {
-                                if (authState.isAuthenticated) {
-                                  context.push(AppConstants.ticketsRoute);
-                                } else {
-                                  context.push(
-                                    '${AppConstants.loginRoute}?redirect=${AppConstants.ticketsRoute}',
                                   );
                                 }
                               },
@@ -325,24 +350,6 @@ class AccountTabScreen extends ConsumerWidget {
                                   );
                                 }
                               },
-                            ),
-                            // _buildAccountListItem(
-                            //   context,
-                            //   Icons.smartphone_outlined,
-                            //   'App Settings',
-                            //   'Customize app experience',
-                            //   () {
-                            //     // Navigate to app settings
-                            //   },
-                            // ),
-                            _buildAccountListItem(
-                              context,
-                              Icons.currency_exchange_outlined,
-                              'Currency',
-                              currencyState.selectedCurrency != null
-                                  ? '${currencyState.selectedCurrency!.code} (${currencyState.selectedCurrency!.symbol})'
-                                  : 'Select your preferred currency',
-                              () => _showCurrencySelectionDialog(context, ref),
                             ),
                           ]),
                         ),

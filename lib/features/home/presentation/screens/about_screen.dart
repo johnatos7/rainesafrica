@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_riverpod_clean_architecture/features/home/presentation/screens/policy_webview_screen.dart';
 
 class AboutScreen extends StatelessWidget {
@@ -284,50 +285,97 @@ class AboutScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
+            // Phone numbers — tappable
             ...contact.phoneNumbers.map(
               (phone) => Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: _buildContactRow(
-                  Icons.phone_outlined,
-                  phone,
-                  colors,
-                  theme,
+                child: InkWell(
+                  onTap: () => _launchPhone(phone),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.phone_outlined,
+                          size: 16,
+                          color: colors.primary.withOpacity(0.7),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            phone,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colors.primary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          Icons.call_outlined,
+                          size: 16,
+                          color: colors.primary.withOpacity(0.5),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
+            // Email — tappable
             if (contact.email != null)
-              _buildContactRow(
-                Icons.email_outlined,
-                contact.email!,
-                colors,
-                theme,
+              InkWell(
+                onTap: () => _launchEmail(contact.email!),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.email_outlined,
+                        size: 16,
+                        color: colors.primary.withOpacity(0.7),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          contact.email!,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colors.primary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        Icons.open_in_new,
+                        size: 16,
+                        color: colors.primary.withOpacity(0.5),
+                      ),
+                    ],
+                  ),
+                ),
               ),
+            const SizedBox(height: 12),
+            // Directions button
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _openMaps(contact.address, contact.location),
+                icon: const Icon(Icons.directions_outlined, size: 18),
+                label: const Text('Get Directions'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: colors.primary,
+                  side: BorderSide(color: colors.primary.withOpacity(0.3)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
+            ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildContactRow(
-    IconData icon,
-    String text,
-    ColorScheme colors,
-    ThemeData theme,
-  ) {
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: colors.primary.withOpacity(0.7)),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            text,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colors.onSurface.withOpacity(0.8),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -452,6 +500,30 @@ class AboutScreen extends StatelessWidget {
         builder: (_) => PolicyWebViewScreen(title: policy.title, url: url),
       ),
     );
+  }
+
+  void _launchPhone(String phone) async {
+    final uri = Uri(scheme: 'tel', path: phone);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  void _launchEmail(String email) async {
+    final uri = Uri(scheme: 'mailto', path: email);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  void _openMaps(String address, String location) async {
+    final query = Uri.encodeComponent('$address, $location');
+    final uri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$query',
+    );
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 }
 

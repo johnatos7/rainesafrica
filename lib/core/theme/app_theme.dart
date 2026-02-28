@@ -20,7 +20,7 @@ abstract final class AppTheme {
   // The FlexColorScheme defined light mode ThemeData.
   static ThemeData light = FlexThemeData.light(
     // User defined custom colors made with FlexSchemeColor() API.
-    fontFamily: 'Nunito',
+    fontFamily: 'SamsungOne',
     primary: Color(0xFF11519B),
 
     surfaceMode: FlexSurfaceMode.highScaffoldLowSurfacesVariantDialog,
@@ -48,7 +48,7 @@ abstract final class AppTheme {
   // The FlexColorScheme defined dark mode ThemeData.
   static ThemeData dark = FlexThemeData.dark(
     // User defined custom colors made with FlexSchemeColor() API.
-    fontFamily: 'Nunito',
+    fontFamily: 'SamsungOne',
     primary: Color(0xFF11519B),
     surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
     blendLevel: 15,

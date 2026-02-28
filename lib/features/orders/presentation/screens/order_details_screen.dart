@@ -95,6 +95,7 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
                   orderExchangeRate: state.order?.exchangeRate ?? 1.0,
                   orderId: state.order!.id,
                   consumerId: state.order!.consumerId,
+                  orderStatusName: state.order!.orderStatus.name,
                   showActionButtons: [
                     'completed',
                     'collected',

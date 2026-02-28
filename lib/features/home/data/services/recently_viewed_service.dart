@@ -11,6 +11,10 @@ class RecentlyViewedItem {
   final double? discount;
   final String imageUrl;
   final List<int>? reviewRatings;
+  final String? estimatedDeliveryText;
+  final bool? isSaleEnable;
+  final List<String>? colourSlugs;
+  final bool hasMoreOptions;
   final int viewedAt; // epoch millis
 
   RecentlyViewedItem({
@@ -22,6 +26,10 @@ class RecentlyViewedItem {
     this.discount,
     required this.imageUrl,
     this.reviewRatings,
+    this.estimatedDeliveryText,
+    this.isSaleEnable,
+    this.colourSlugs,
+    this.hasMoreOptions = false,
     required this.viewedAt,
   });
 
@@ -34,6 +42,10 @@ class RecentlyViewedItem {
     'discount': discount,
     'imageUrl': imageUrl,
     'reviewRatings': reviewRatings,
+    'estimatedDeliveryText': estimatedDeliveryText,
+    'isSaleEnable': isSaleEnable,
+    'colourSlugs': colourSlugs,
+    'hasMoreOptions': hasMoreOptions,
     'viewedAt': viewedAt,
   };
 
@@ -50,6 +62,13 @@ class RecentlyViewedItem {
           (json['reviewRatings'] as List<dynamic>?)
               ?.map((e) => (e as num).toInt())
               .toList(),
+      estimatedDeliveryText: json['estimatedDeliveryText'] as String?,
+      isSaleEnable: json['isSaleEnable'] as bool?,
+      colourSlugs:
+          (json['colourSlugs'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList(),
+      hasMoreOptions: json['hasMoreOptions'] as bool? ?? false,
       viewedAt: json['viewedAt'] as int,
     );
   }

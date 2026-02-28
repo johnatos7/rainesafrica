@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod_clean_architecture/features/orders/domain/entities/order_product_entity.dart';
 import 'package:flutter_riverpod_clean_architecture/features/orders/presentation/widgets/product_action_buttons.dart';
+import 'package:flutter_riverpod_clean_architecture/features/products/domain/entities/product_entity.dart';
+import 'package:flutter_riverpod_clean_architecture/features/products/presentation/screens/product_details_screen.dart';
 
 class OrderProductsList extends StatelessWidget {
   final List<OrderProductEntity> products;
@@ -10,6 +12,7 @@ class OrderProductsList extends StatelessWidget {
   final int orderId;
   final int consumerId;
   final bool showActionButtons;
+  final String? orderStatusName;
 
   const OrderProductsList({
     super.key,
@@ -19,6 +22,7 @@ class OrderProductsList extends StatelessWidget {
     required this.orderId,
     required this.consumerId,
     this.showActionButtons = true,
+    this.orderStatusName,
   });
 
   @override
@@ -114,198 +118,261 @@ class OrderProductsList extends StatelessWidget {
     ColorScheme colors,
     OrderProductEntity product,
   ) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colors.surfaceVariant.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colors.outline.withOpacity(0.1), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Product Image
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: colors.surface,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: colors.outline.withOpacity(0.2),
-                    width: 1,
+    return InkWell(
+      onTap: () {
+        // Create a minimal ProductEntity from the order product for navigation
+        final productEntity = ProductEntity(
+          id: product.id,
+          name: product.name,
+          slug: '',
+          price: product.pivot.singlePrice,
+          productGalleries:
+              product.productGalleries
+                  .map(
+                    (g) => ProductImageEntity(
+                      id: g.id,
+                      imageUrl: g.imageUrl,
+                      originalUrl: g.originalUrl,
+                    ),
+                  )
+                  .toList(),
+          productThumbnail:
+              product.productThumbnail != null
+                  ? ProductImageEntity(
+                    id: product.productThumbnail!.id,
+                    imageUrl: product.productThumbnail!.imageUrl,
+                    originalUrl: product.productThumbnail!.originalUrl,
+                  )
+                  : null,
+          reviewRatings: product.reviewRatings,
+        );
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => ProductDetailsScreen(product: productEntity),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colors.surfaceVariant.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: colors.outline.withOpacity(0.1), width: 1),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Product Image
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: colors.surface,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: colors.outline.withOpacity(0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child:
+                        product.productThumbnail != null
+                            ? Image.network(
+                              product.productThumbnail!.imageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Icon(
+                                  Icons.image_outlined,
+                                  color: colors.onSurface.withOpacity(0.4),
+                                  size: 24,
+                                );
+                              },
+                            )
+                            : Icon(
+                              Icons.image_outlined,
+                              color: colors.onSurface.withOpacity(0.4),
+                              size: 24,
+                            ),
                   ),
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child:
-                      product.productThumbnail != null
-                          ? Image.network(
-                            product.productThumbnail!.imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Icon(
-                                Icons.image_outlined,
-                                color: colors.onSurface.withOpacity(0.4),
-                                size: 24,
-                              );
-                            },
-                          )
-                          : Icon(
-                            Icons.image_outlined,
-                            color: colors.onSurface.withOpacity(0.4),
-                            size: 24,
-                          ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Product Details
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      product.name,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w500,
-                        color: colors.onSurface,
+                const SizedBox(width: 12),
+                // Product Details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        product.name,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w500,
+                          color: colors.onSurface,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    // Variation name (if present)
-                    if (_getVariationName(product) != null) ...[
-                      const SizedBox(height: 2),
+                      // Variation name (if present)
+                      if (_getVariationName(product) != null) ...[
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colors.surface,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: colors.outline.withOpacity(0.2),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Text(
+                                _getVariationName(product)!,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colors.onSurface.withOpacity(0.7),
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 4),
                       Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
+                          Text(
+                            'Qty: ${product.pivot.quantity}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colors.onSurface.withOpacity(0.6),
                             ),
-                            decoration: BoxDecoration(
-                              color: colors.surface,
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                color: colors.outline.withOpacity(0.2),
-                                width: 1,
-                              ),
-                            ),
-                            child: Text(
-                              _getVariationName(product)!,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colors.onSurface.withOpacity(0.7),
-                                fontWeight: FontWeight.w500,
-                                fontSize: 11,
-                              ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Price: ${(product.pivot.singlePrice * orderExchangeRate).toStringAsFixed(2)} ${_getCurrencySymbol(product)}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colors.onSurface.withOpacity(0.6),
                             ),
                           ),
                         ],
                       ),
-                    ],
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Text(
-                          'Qty: ${product.pivot.quantity}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colors.onSurface.withOpacity(0.6),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Price: ${(product.pivot.singlePrice * orderExchangeRate).toStringAsFixed(2)} ${_getCurrencySymbol(product)}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colors.onSurface.withOpacity(0.6),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Subtotal: ${(product.pivot.subtotal * orderExchangeRate).toStringAsFixed(2)} ${_getCurrencySymbol(product)}',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: colors.primary,
-                          ),
-                        ),
-                        if (product.pivot.shippingCost > 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Subtotal: ${(product.pivot.subtotal * orderExchangeRate).toStringAsFixed(2)} ${_getCurrencySymbol(product)}',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: colors.primary,
                             ),
-                            decoration: BoxDecoration(
-                              color: colors.primary.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              '+ Shipping',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colors.primary,
-                                fontWeight: FontWeight.w500,
-                                fontSize: 10,
+                          ),
+                          if (product.pivot.shippingCost > 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colors.primary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                '+ Shipping',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colors.primary,
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 10,
+                                ),
                               ),
                             ),
-                          ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            // Per-item Status & ETA row
+            // Hide ETA when status is collected or delivered
+            if ((product.pivot.itemStatus != null &&
+                    product.pivot.itemStatus!.trim().isNotEmpty) ||
+                (product.pivot.eta != null &&
+                    product.pivot.eta!.trim().isNotEmpty &&
+                    !_isTerminalStatus(product.pivot.itemStatus))) ...[
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: colors.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: colors.outline.withOpacity(0.15)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Status row
+                    if (product.pivot.itemStatus != null &&
+                        product.pivot.itemStatus!.trim().isNotEmpty) ...[
+                      _buildStatusRow(product.pivot.itemStatus!, colors, theme),
+                    ],
+                    // ETA row – hidden once order is collected or delivered
+                    if (product.pivot.eta != null &&
+                        product.pivot.eta!.trim().isNotEmpty &&
+                        !_isTerminalStatus(product.pivot.itemStatus)) ...[
+                      if (product.pivot.itemStatus != null &&
+                          product.pivot.itemStatus!.trim().isNotEmpty)
+                        const SizedBox(height: 8),
+                      _buildEtaRow(product.pivot.eta!, colors, theme),
+                    ],
                   ],
                 ),
               ),
             ],
-          ),
-          // Per-item Status & ETA row
-          if ((product.pivot.itemStatus != null &&
-                  product.pivot.itemStatus!.trim().isNotEmpty) ||
-              (product.pivot.eta != null &&
-                  product.pivot.eta!.trim().isNotEmpty)) ...[
-            const SizedBox(height: 10),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: colors.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: colors.outline.withOpacity(0.15)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Status row
-                  if (product.pivot.itemStatus != null &&
-                      product.pivot.itemStatus!.trim().isNotEmpty) ...[
-                    _buildStatusRow(product.pivot.itemStatus!, colors, theme),
-                  ],
-                  // ETA row
-                  if (product.pivot.eta != null &&
-                      product.pivot.eta!.trim().isNotEmpty) ...[
-                    if (product.pivot.itemStatus != null &&
-                        product.pivot.itemStatus!.trim().isNotEmpty)
-                      const SizedBox(height: 8),
-                    _buildEtaRow(product.pivot.eta!, colors, theme),
-                  ],
-                ],
-              ),
+            const SizedBox(height: 12),
+            ProductActionButtons(
+              orderId: orderId,
+              consumerId: consumerId,
+              product: product,
+              currencySymbol: currencySymbol,
+              showActions: showActionButtons,
             ),
           ],
-          const SizedBox(height: 12),
-          ProductActionButtons(
-            orderId: orderId,
-            consumerId: consumerId,
-            product: product,
-            currencySymbol: currencySymbol,
-            showActions: showActionButtons,
-          ),
-        ],
+        ),
       ),
     );
+  }
+
+  /// Returns true if the item status indicates the order is completed
+  /// (collected or delivered), meaning ETA is no longer relevant.
+  bool _isTerminalStatus(String? itemStatus) {
+    // Check per-item status
+    if (itemStatus != null && itemStatus.trim().isNotEmpty) {
+      final s = itemStatus.toLowerCase().trim();
+      if (s.contains('ready for collection') ||
+          s.contains('deliver') ||
+          s.contains('collected')) {
+        return true;
+      }
+    }
+    // Check order-level status
+    if (orderStatusName != null && orderStatusName!.trim().isNotEmpty) {
+      final o = orderStatusName!.toLowerCase().trim();
+      if (o.contains('ready for collection') ||
+          o.contains('deliver') ||
+          o.contains('collected')) {
+        return true;
+      }
+    }
+    return false;
   }
 
   Widget _buildStatusRow(String status, ColorScheme colors, ThemeData theme) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/presentation/screens/product_details_screen.dart';
+import 'package:flutter_riverpod_clean_architecture/features/products/presentation/widgets/color_attribute_indicator.dart';
 import 'package:flutter_riverpod_clean_architecture/features/cart/presentation/widgets/add_to_cart_button.dart';
 import 'package:flutter_riverpod_clean_architecture/features/currency/presentation/providers/currency_provider.dart';
 
@@ -123,6 +124,8 @@ class ProductListItem extends ConsumerWidget {
                           ),
                       ],
                     ),
+                    // Colour & options indicator
+                    ColorAttributeIndicator(product: product),
                     const SizedBox(height: 8),
 
                     // Add to Cart Button

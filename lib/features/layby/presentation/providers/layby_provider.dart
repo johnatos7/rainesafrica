@@ -164,6 +164,11 @@ class LaybyNotifier extends StateNotifier<LaybyState> {
       final uploadId = DateTime.now().millisecondsSinceEpoch.toString();
       final totalChunks = (fileBytes.length / chunkSize).ceil();
 
+      print('📤 [LAYBY UPLOAD] Starting upload: $fileName');
+      print('📤 [LAYBY UPLOAD] File size: ${fileBytes.length} bytes');
+      print('📤 [LAYBY UPLOAD] Total chunks: $totalChunks');
+      print('📤 [LAYBY UPLOAD] Upload ID: $uploadId');
+
       // Upload chunks
       for (int i = 0; i < totalChunks; i++) {
         final start = i * chunkSize;
@@ -172,6 +177,10 @@ class LaybyNotifier extends StateNotifier<LaybyState> {
                 ? fileBytes.length
                 : start + chunkSize;
         final chunk = fileBytes.sublist(start, end);
+
+        print(
+          '📤 [LAYBY UPLOAD] Uploading chunk ${i + 1}/$totalChunks (${chunk.length} bytes)',
+        );
 
         await _repository.uploadDocumentChunk(
           uploadId: uploadId,
@@ -184,6 +193,8 @@ class LaybyNotifier extends StateNotifier<LaybyState> {
         state = state.copyWith(uploadProgress: (i + 1) / totalChunks);
       }
 
+      print('📤 [LAYBY UPLOAD] All chunks uploaded, completing...');
+
       // Complete upload
       final attachment = await _repository.completeDocumentUpload(
         uploadId: uploadId,
@@ -191,9 +202,15 @@ class LaybyNotifier extends StateNotifier<LaybyState> {
         totalChunks: totalChunks,
       );
 
+      print(
+        '📤 [LAYBY UPLOAD] Upload complete! Attachment ID: ${attachment.id}',
+      );
+
       state = state.copyWith(isLoading: false, uploadProgress: 1.0);
       return attachment;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('❌ [LAYBY UPLOAD] Upload failed: $e');
+      print('❌ [LAYBY UPLOAD] Stack trace: $stackTrace');
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),
