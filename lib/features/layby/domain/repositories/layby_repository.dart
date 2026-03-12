@@ -3,12 +3,6 @@ import 'package:flutter_riverpod_clean_architecture/features/layby/domain/entiti
 
 /// Abstract repository for the Layby feature
 abstract class LaybyRepository {
-  /// Check if a product is eligible for layby
-  Future<LaybyEligibility> checkEligibility({
-    required int productId,
-    int? variationId,
-  });
-
   /// Get user's previously uploaded ID documents
   Future<List<LaybyDocument>> getUploadedDocuments();
 
@@ -46,6 +40,12 @@ abstract class LaybyRepository {
     required int applicationId,
     required double amount,
     required String paymentMethod,
-    String currency = 'ZAR',
+    String currency = 'USD',
+  });
+
+  /// Link/update ID document on an existing application
+  Future<void> updateApplicationDocument({
+    required int applicationId,
+    required LaybyUpdateDocumentRequest request,
   });
 }

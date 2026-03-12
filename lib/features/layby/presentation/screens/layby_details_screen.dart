@@ -8,6 +8,7 @@ import 'package:flutter_riverpod_clean_architecture/features/layby/presentation/
 import 'package:flutter_riverpod_clean_architecture/features/currency/presentation/providers/currency_provider.dart';
 import 'package:flutter_riverpod_clean_architecture/features/checkout/presentation/widgets/checkout_payment_section.dart';
 import 'package:flutter_riverpod_clean_architecture/features/settings/domain/entities/settings_entity.dart';
+import 'package:flutter_riverpod_clean_architecture/features/layby/presentation/widgets/document_upload_widget.dart';
 
 /// Layby application details screen
 class LaybyDetailsScreen extends ConsumerWidget {
@@ -93,9 +94,10 @@ class LaybyDetailsScreen extends ConsumerWidget {
     final deposit = double.tryParse(app.depositAmount) ?? 0;
     final monthly = double.tryParse(app.monthlyAmount) ?? 0;
     final formatCurrency = ref.watch(currencyFormattingProvider);
-    final canPay =
-        app.status.toLowerCase() == 'active' ||
-        app.status.toLowerCase() == 'approved';
+    final canPay = app.canPay;
+    print(
+      '💰 [LAYBY DETAILS] status: "${app.status}", balance: "${app.balanceRemaining}", canPay: $canPay, totalPaid: "${app.totalPaid}", totalAmount: "${app.totalAmount}"',
+    );
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -202,6 +204,131 @@ class LaybyDetailsScreen extends ConsumerWidget {
               ),
             ],
             const SizedBox(height: 16),
+
+            // Under review banner (for pending applications)
+            if (app.status.toLowerCase() == 'pending') ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.hourglass_top_rounded,
+                      color: Colors.amber.shade800,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Under Review',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.amber.shade900,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Your application is being reviewed. We\'ll notify you once a decision is made.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.amber.shade800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            // Document upload prompt (if document missing)
+            if (app.needsDocument) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.withOpacity(0.2)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          color: Colors.red.shade700,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'ID Document Required',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.red.shade700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Please upload your ID document to complete your application. Your application cannot be processed without it.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.red.shade600,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          // TODO: Navigate to document upload flow
+                          // This will open a bottom sheet or screen for document upload
+                          _showDocumentUploadSheet(context, ref, app);
+                        },
+                        icon: Icon(
+                          Icons.upload_file,
+                          size: 18,
+                          color: Colors.red.shade700,
+                        ),
+                        label: Text(
+                          'Upload ID Document',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.red.shade700,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: Colors.red.shade300),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
 
             // Payment breakdown
             Text(
@@ -499,6 +626,244 @@ class LaybyDetailsScreen extends ConsumerWidget {
     }
   }
 
+  void _showDocumentUploadSheet(
+    BuildContext context,
+    WidgetRef ref,
+    LaybyApplication app,
+  ) {
+    final colors = Theme.of(context).colorScheme;
+    LaybyAttachment? uploadedAttachment;
+    LaybyDocument? selectedDoc;
+    String docType = 'id_card';
+    String docNumber = '';
+    final docNumberController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: colors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setBottomState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Handle
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: colors.onSurface.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Upload ID Document',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: colors.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Upload your ID document to complete your layby application.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colors.onSurface.withOpacity(0.6),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Document type dropdown
+                    DropdownButtonFormField<String>(
+                      value: docType,
+                      decoration: InputDecoration(
+                        labelText: 'Document Type',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 14,
+                        ),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'id_card',
+                          child: Text('ID Card'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'passport',
+                          child: Text('Passport'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'drivers_license',
+                          child: Text("Driver's License"),
+                        ),
+                      ],
+                      onChanged: (val) {
+                        setBottomState(() => docType = val ?? 'id_card');
+                      },
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Document number
+                    TextField(
+                      controller: docNumberController,
+                      decoration: InputDecoration(
+                        labelText: 'Document Number',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 14,
+                        ),
+                      ),
+                      onChanged: (val) {
+                        setBottomState(() => docNumber = val);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Upload widget
+                    Consumer(
+                      builder: (ctx, innerRef, _) {
+                        final uploadedDocs = innerRef.watch(
+                          laybyUploadedDocumentsProvider,
+                        );
+                        return DocumentUploadWidget(
+                          existingDocuments:
+                              uploadedDocs.whenOrNull(data: (d) => d) ?? [],
+                          onAttachmentReady: (attachment) {
+                            setBottomState(
+                              () => uploadedAttachment = attachment,
+                            );
+                          },
+                          onExistingDocumentSelected: (doc) {
+                            setBottomState(() => selectedDoc = doc);
+                          },
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Submit button
+                    Consumer(
+                      builder: (ctx, innerRef, _) {
+                        final laybyState = innerRef.watch(
+                          laybyNotifierProvider,
+                        );
+                        final hasDoc =
+                            uploadedAttachment != null || selectedDoc != null;
+                        final hasNumber = docNumber.trim().isNotEmpty;
+
+                        return SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed:
+                                hasDoc && hasNumber && !laybyState.isLoading
+                                    ? () async {
+                                      final notifier = innerRef.read(
+                                        laybyNotifierProvider.notifier,
+                                      );
+                                      // LaybyAttachment.id is String, LaybyDocument uses attachmentId
+                                      final attachmentId =
+                                          uploadedAttachment?.id ??
+                                          selectedDoc?.attachmentId;
+                                      if (attachmentId == null) return;
+
+                                      final request =
+                                          LaybyUpdateDocumentRequest(
+                                            idDocumentAttachmentId:
+                                                attachmentId,
+                                            idDocumentType: docType,
+                                            idDocumentNumber: docNumber.trim(),
+                                          );
+
+                                      final success = await notifier
+                                          .updateApplicationDocument(
+                                            applicationId: app.id,
+                                            request: request,
+                                          );
+
+                                      if (success && ctx.mounted) {
+                                        Navigator.of(ctx).pop();
+                                        // Refresh details
+                                        ref.invalidate(
+                                          laybyApplicationDetailsProvider(
+                                            app.id,
+                                          ),
+                                        );
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Document uploaded successfully!',
+                                            ),
+                                            backgroundColor: Colors.green,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                    : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: colors.primary,
+                              foregroundColor: colors.onPrimary,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child:
+                                laybyState.isLoading
+                                    ? const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                    : const Text(
+                                      'Submit Document',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showPaymentBottomSheet(
     BuildContext context,
     WidgetRef ref,
@@ -511,7 +876,7 @@ class LaybyDetailsScreen extends ConsumerWidget {
     final selectedCurrency = ref.read(selectedCurrencyProvider);
     final currencyCode = selectedCurrency?.code ?? 'USD';
 
-    // Layby amounts from the API are already in the store's base currency (ZAR).
+    // Layby amounts from the API are already in the store's base currency (USD).
     // Do NOT multiply by exchange rate — that inflates the suggested amount.
     final suggestedAmount = monthly > balance ? balance : monthly;
 
@@ -561,12 +926,7 @@ class LaybyDetailsScreen extends ConsumerWidget {
                     currency: currencyCode,
                   );
               if (context.mounted) {
-                _showBankTransferConfirmation(
-                  context,
-                  app,
-                  amount,
-                  formatCurrency,
-                );
+                _showBankTransferConfirmation(context, app);
               }
             } else if (paymentMethod == 'cod' ||
                 paymentMethod == 'office_payment') {
@@ -580,12 +940,7 @@ class LaybyDetailsScreen extends ConsumerWidget {
                     currency: currencyCode,
                   );
               if (context.mounted) {
-                _showOfficePaymentConfirmation(
-                  context,
-                  app,
-                  amount,
-                  formatCurrency,
-                );
+                _showOfficePaymentConfirmation(context, app);
               }
             } else {
               // Unknown method — try as gateway
@@ -613,8 +968,6 @@ class LaybyDetailsScreen extends ConsumerWidget {
   void _showBankTransferConfirmation(
     BuildContext context,
     LaybyApplication app,
-    double amount,
-    String Function(double) formatCurrency,
   ) {
     final colors = Theme.of(context).colorScheme;
 
@@ -673,13 +1026,6 @@ class LaybyDetailsScreen extends ConsumerWidget {
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: colors.onSurface,
-                          ),
-                        ),
-                        Text(
-                          'Amount: ${formatCurrency(amount)}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: colors.onSurface.withOpacity(0.6),
                           ),
                         ),
                       ],
@@ -820,8 +1166,6 @@ class LaybyDetailsScreen extends ConsumerWidget {
   void _showOfficePaymentConfirmation(
     BuildContext context,
     LaybyApplication app,
-    double amount,
-    String Function(double) formatCurrency,
   ) {
     final colors = Theme.of(context).colorScheme;
     showDialog(
@@ -863,13 +1207,6 @@ class LaybyDetailsScreen extends ConsumerWidget {
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           color: colors.onSurface,
-                        ),
-                      ),
-                      Text(
-                        'Amount: ${formatCurrency(amount)}',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: colors.onSurface.withOpacity(0.6),
                         ),
                       ),
                     ],

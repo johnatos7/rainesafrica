@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "468162941654",
+    "project_id": "raines-africa-eb63a",
+    "storage_bucket": "raines-africa-eb63a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:468162941654:android:c1e2c37b79038b5c596f77",
+        "android_client_info": {
+          "package_name": "za.raines.rainesshop"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAp8v4_h-wPFf16ztiB_QowFF4jR81vCYA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

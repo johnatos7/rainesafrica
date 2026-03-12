@@ -128,6 +128,9 @@ abstract class ProductRemoteDataSource {
 
   /// Get products by explicit list of IDs using /api/product?ids=1,2,3
   Future<List<ProductModel>> getProductsByIds({required List<int> ids});
+
+  /// Get products by explicit list of SKUs using /api/product?skus=sku1,sku2
+  Future<List<ProductModel>> getProductsBySkus({required List<String> skus});
 }
 
 class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
@@ -939,6 +942,34 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       return [];
     } catch (e, stackTrace) {
       print('Error in getProductsByIds: $e');
+      print('Stack trace: $stackTrace');
+      return [];
+    }
+  }
+
+  @override
+  Future<List<ProductModel>> getProductsBySkus({
+    required List<String> skus,
+  }) async {
+    final sanitized = skus.where((e) => e.trim().isNotEmpty).toList();
+    if (sanitized.isEmpty) return [];
+
+    try {
+      final response = await _apiClient.get(
+        '/api/product',
+        queryParameters: {'paginate': '200', 'skus': sanitized.join(',')},
+      );
+
+      if (response == null) return [];
+
+      if (response is Map<String, dynamic> && response['data'] is List) {
+        return (response['data'] as List)
+            .map((item) => ProductModel.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+      return [];
+    } catch (e, stackTrace) {
+      print('Error in getProductsBySkus: $e');
       print('Stack trace: $stackTrace');
       return [];
     }

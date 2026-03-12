@@ -81,18 +81,33 @@ class CurrencyNotifier extends StateNotifier<CurrencyState> {
     // Load cached currencies first for quick display
     await loadCachedCurrencies();
 
-    // Try to load previously selected currency; if present, we're done
+    // Try to load previously selected currency for quick display
     await loadSelectedCurrency();
-    if (state.selectedCurrency != null) {
+    final hadCachedSelection = state.selectedCurrency != null;
+
+    if (hadCachedSelection) {
+      // Show cached data immediately while we refresh in the background
       state = state.copyWith(isLoading: false);
+    }
+
+    // Always fetch fresh exchange rates from the API
+    await loadCurrencies();
+
+    // If we had a cached selection, update it with fresh exchange rate data
+    if (hadCachedSelection && state.selectedCurrency != null) {
+      final freshMatch = state.currencies.firstWhere(
+        (c) => c.code == state.selectedCurrency!.code,
+        orElse: () => state.selectedCurrency!,
+      );
+      // Only update if we found a fresh version with potentially new rates
+      if (freshMatch != state.selectedCurrency) {
+        await setSelectedCurrency(freshMatch);
+      }
       return;
     }
 
-    // Otherwise, load from network, then default to USD
-    await loadCurrencies();
+    // First launch: load selected currency, or auto-detect by location
     await loadSelectedCurrency();
-
-    // If still none selected, try choose based on user's location
     if (state.selectedCurrency == null) {
       await setCurrencyBasedOnLocation();
     }
@@ -304,6 +319,11 @@ final currenciesProvider = Provider<List<CurrencyEntity>>((ref) {
 });
 
 final currencyFormattingProvider = Provider<String Function(double)>((ref) {
-  final notifier = ref.watch(currencyProvider.notifier);
-  return notifier.formatPrice;
+  final state = ref.watch(currencyProvider);
+  return (double price) {
+    if (state.selectedCurrency != null) {
+      return state.selectedCurrency!.formatPrice(price);
+    }
+    return '\$${price.toStringAsFixed(2)}';
+  };
 });

@@ -34,6 +34,10 @@ import 'package:flutter_riverpod_clean_architecture/features/tickets/presentatio
 import 'package:flutter_riverpod_clean_architecture/features/feedback/presentation/screens/marketing_feedback_screen.dart';
 import 'package:flutter_riverpod_clean_architecture/features/layby/presentation/screens/layby_payment_webview_screen.dart';
 import 'package:flutter_riverpod_clean_architecture/features/layby/domain/entities/layby_entity.dart';
+import 'package:flutter_riverpod_clean_architecture/features/products/presentation/screens/product_details_screen.dart';
+import 'package:flutter_riverpod_clean_architecture/features/products/presentation/screens/sku_collection_screen.dart';
+import 'package:flutter_riverpod_clean_architecture/features/products/presentation/screens/category_products_screen.dart';
+import 'package:flutter_riverpod_clean_architecture/features/products/domain/entities/product_entity.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final routerKey = GlobalKey<NavigatorState>(debugLabel: 'routerKey');
@@ -50,15 +54,15 @@ final routerProvider = Provider<GoRouter>((ref) {
 
   final router = GoRouter(
     navigatorKey: routerKey,
-    initialLocation: '/',
+    initialLocation: '/loading',
     refreshListenable: authStateListenable,
     routes: [
+      GoRoute(path: '/loading', builder: (_, __) => const SplashScreen()),
       GoRoute(
         path: '/',
         name: 'home',
         builder: (_, __) => const MainHomeScreen(),
         routes: [
-          GoRoute(path: 'loading', builder: (_, __) => const SplashScreen()),
           GoRoute(
             path: 'profile',
             name: 'profile',
@@ -271,11 +275,22 @@ final routerProvider = Provider<GoRouter>((ref) {
                   final extra = state.extra as Map<String, dynamic>? ?? {};
                   final productId = extra['productId'] as int? ?? 0;
                   final variationId = extra['variationId'] as int?;
-                  final eligibility = extra['eligibility'] as LaybyEligibility;
+                  final eligibility =
+                      extra['eligibility'] as LaybyEligibility? ??
+                      const LaybyEligibility(
+                        eligible: false,
+                        depositPercentage: 0,
+                        availableDurations: [],
+                        minPrice: 0,
+                        isSaleProduct: false,
+                      );
+                  final productPrice =
+                      (extra['productPrice'] as num?)?.toDouble() ?? 0.0;
                   return LaybyApplicationScreen(
                     productId: productId,
                     variationId: variationId,
                     eligibility: eligibility,
+                    productPrice: productPrice,
                   );
                 },
               ),
@@ -350,6 +365,118 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
         ],
+      ),
+      // Deep link routes for raines.africa (with /en/ prefix)
+      GoRoute(
+        path: '/en/product/:slug',
+        name: 'deep_link_product',
+        builder: (context, state) {
+          final slug = state.pathParameters['slug'] ?? '';
+          final product = ProductEntity(
+            id: 0,
+            name: '',
+            slug: slug,
+            productGalleries: [],
+            price: 0,
+          );
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, _) {
+              if (!didPop) GoRouter.of(context).go('/');
+            },
+            child: ProductDetailsScreen(key: ValueKey(slug), product: product),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/en/collections',
+        name: 'deep_link_collections',
+        builder: (context, state) {
+          final skusParam = state.uri.queryParameters['skus'] ?? '';
+          Widget child;
+          if (skusParam.isNotEmpty) {
+            final skus =
+                skusParam
+                    .split(',')
+                    .map((e) => e.trim())
+                    .where((e) => e.isNotEmpty)
+                    .toList();
+            child = SkuCollectionScreen(skus: skus, title: 'Collection');
+          } else {
+            final category = state.uri.queryParameters['category'] ?? '';
+            if (category.isEmpty) {
+              child = const MainHomeScreen();
+            } else {
+              child = CategoryProductsScreen(
+                categorySlug: category,
+                categoryName: category.replaceAll('-', ' '),
+              );
+            }
+          }
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, _) {
+              if (!didPop) GoRouter.of(context).go('/');
+            },
+            child: child,
+          );
+        },
+      ),
+      // Deep link routes without locale prefix (some links omit /en/)
+      GoRoute(
+        path: '/product/:slug',
+        name: 'deep_link_product_no_locale',
+        builder: (context, state) {
+          final slug = state.pathParameters['slug'] ?? '';
+          final product = ProductEntity(
+            id: 0,
+            name: '',
+            slug: slug,
+            productGalleries: [],
+            price: 0,
+          );
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, _) {
+              if (!didPop) GoRouter.of(context).go('/');
+            },
+            child: ProductDetailsScreen(key: ValueKey(slug), product: product),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/collections',
+        name: 'deep_link_collections_no_locale',
+        builder: (context, state) {
+          final skusParam = state.uri.queryParameters['skus'] ?? '';
+          Widget child;
+          if (skusParam.isNotEmpty) {
+            final skus =
+                skusParam
+                    .split(',')
+                    .map((e) => e.trim())
+                    .where((e) => e.isNotEmpty)
+                    .toList();
+            child = SkuCollectionScreen(skus: skus, title: 'Collection');
+          } else {
+            final category = state.uri.queryParameters['category'] ?? '';
+            if (category.isEmpty) {
+              child = const MainHomeScreen();
+            } else {
+              child = CategoryProductsScreen(
+                categorySlug: category,
+                categoryName: category.replaceAll('-', ' '),
+              );
+            }
+          }
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, _) {
+              if (!didPop) GoRouter.of(context).go('/');
+            },
+            child: child,
+          );
+        },
       ),
       GoRoute(
         path: '/register',

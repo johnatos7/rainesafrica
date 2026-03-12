@@ -368,10 +368,6 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
     super.initState();
     _fetchFullProduct();
     _fetchRecommendations();
-    // Track recently viewed
-    Future.microtask(() {
-      ref.read(recentlyViewedProvider.notifier).trackView(widget.product);
-    });
   }
 
   Future<void> _fetchFullProduct() async {
@@ -398,6 +394,8 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
             _isLoading = false;
             // Do not auto-select variation by default
           });
+          // Track recently viewed with full product data
+          ref.read(recentlyViewedProvider.notifier).trackView(product);
         },
       );
     } catch (e) {
@@ -588,7 +586,13 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
           Icons.arrow_back,
           color: Theme.of(context).colorScheme.onSurface,
         ),
-        onPressed: () => Navigator.of(context).pop(),
+        onPressed: () {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          } else {
+            context.go('/');
+          }
+        },
       ),
       title: Text(
         widget.product.name.length > 20
@@ -913,6 +917,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
 
             // Layby Eligibility Section
             LaybyEligibilityWidget(
+              eligibility: (_fullProduct ?? product).laybyEligibility,
               productId: product.id,
               variationId: _selectedVariation?.id,
               productPrice: _getSelectedVariationPrice(product),

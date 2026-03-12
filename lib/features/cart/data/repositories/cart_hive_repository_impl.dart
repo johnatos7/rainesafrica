@@ -243,15 +243,46 @@ class CartHiveRepositoryImpl implements CartRepository {
 
       // Product should never be null at this point since we create it if it doesn't exist
 
-      // Calculate effective price (sale price if available, otherwise regular price)
-      final effectivePrice =
-          (product.isSaleEnable == 1 &&
-                  product.salePrice != null &&
-                  product.salePrice! > 0)
-              ? product.salePrice!
-              : (product.price ?? 0.0);
-
-      print('CartHiveRepository: Using effective price: $effectivePrice');
+      // Calculate effective price — prefer variation price when a variation is selected
+      double effectivePrice;
+      if (selectedVariationId != null && product.variations != null) {
+        // Find the matching variation by ID
+        final matchingVariations = product.variations!.where(
+          (v) => v.id == selectedVariationId,
+        );
+        if (matchingVariations.isNotEmpty) {
+          final variation = matchingVariations.first;
+          // Use the variation's sale price if available, otherwise its regular price
+          if (variation.salePrice != null && variation.salePrice! > 0) {
+            effectivePrice = variation.salePrice!;
+          } else {
+            effectivePrice = variation.price ?? product.price ?? 0.0;
+          }
+          print(
+            'CartHiveRepository: Using VARIATION price for variation $selectedVariationId: $effectivePrice',
+          );
+        } else {
+          // Variation ID provided but not found in product — fall back to base price
+          effectivePrice =
+              (product.isSaleEnable == 1 &&
+                      product.salePrice != null &&
+                      product.salePrice! > 0)
+                  ? product.salePrice!
+                  : (product.price ?? 0.0);
+          print(
+            'CartHiveRepository: Variation $selectedVariationId not found, using BASE price: $effectivePrice',
+          );
+        }
+      } else {
+        // No variation — use base product price
+        effectivePrice =
+            (product.isSaleEnable == 1 &&
+                    product.salePrice != null &&
+                    product.salePrice! > 0)
+                ? product.salePrice!
+                : (product.price ?? 0.0);
+        print('CartHiveRepository: Using BASE product price: $effectivePrice');
+      }
 
       // Create cart item
       final cartItem = CartItemModel(

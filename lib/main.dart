@@ -13,13 +13,25 @@ import 'package:flutter_riverpod_clean_architecture/core/updates/update_provider
 import 'package:flutter_riverpod_clean_architecture/l10n/app_localizations_delegate.dart';
 import 'package:flutter_riverpod_clean_architecture/l10n/l10n.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_riverpod_clean_architecture/firebase_options.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_riverpod_clean_architecture/features/currency/presentation/providers/currency_provider.dart';
+import 'package:app_links/app_links.dart';
+
+// Global AppLinks instance for deep link handling
+late final AppLinks _appLinks;
 
 void main() async {
   // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Initialize deep link handler
+  _appLinks = AppLinks();
 
   // Initialize Hive
   await Hive.initFlutter();
@@ -89,6 +101,32 @@ class MyApp extends ConsumerWidget {
             ).toString();
         // Use GoRouter to navigate
         router.go(uri);
+      });
+
+      // Listen for incoming deep links and route through GoRouter
+      _appLinks.uriLinkStream.listen((Uri uri) {
+        print('🔗 [DEEP LINK] Received: $uri');
+        if (uri.host == 'raines.africa') {
+          final routeUri = Uri(
+            path: uri.path.isEmpty ? '/' : uri.path,
+            queryParameters:
+                uri.queryParameters.isNotEmpty ? uri.queryParameters : null,
+          );
+          print('🔗 [DEEP LINK] Navigating to: $routeUri');
+          router.go(routeUri.toString());
+        }
+      });
+
+      // Handle initial link (cold start)
+      _appLinks.getInitialLink().then((Uri? uri) {
+        if (uri != null && uri.host == 'raines.africa') {
+          print('🔗 [DEEP LINK] Initial link: $uri');
+          final routeUri = Uri(
+            path: uri.path.isEmpty ? '/' : uri.path,
+            queryParameters: uri.queryParameters,
+          );
+          router.go(routeUri.toString());
+        }
       });
     }
 

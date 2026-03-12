@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod_clean_architecture/core/constants/app_constants.dart';
 import 'package:flutter_riverpod_clean_architecture/core/utils/responsive_utils.dart';
 import 'package:flutter_riverpod_clean_architecture/features/layby/presentation/widgets/layby_badge_widget.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -180,8 +179,7 @@ class ProductCard extends ConsumerWidget {
 
                     // Layby badge
                     LaybyBadgeWidget(
-                      productPrice: product.effectivePrice,
-                      threshold: AppConstants.laybyEligibilityThreshold,
+                      isEligible: product.laybyEligibility?.eligible ?? false,
                     ),
                   ],
                 ),

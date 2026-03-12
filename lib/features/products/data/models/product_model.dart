@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_riverpod_clean_architecture/features/products/domain/entities/product_entity.dart';
+import 'package:flutter_riverpod_clean_architecture/features/layby/domain/entities/layby_entity.dart';
 import 'package:equatable/equatable.dart';
 import 'attribute_model.dart';
 
@@ -163,6 +164,7 @@ class ProductModel extends Equatable {
   final List<ProductReviewModel>? reviews;
   final List<AttributeModel>? attributes;
   final int? isGiftCard;
+  final Map<String, dynamic>? laybyEligibilityJson;
 
   const ProductModel({
     this.id,
@@ -232,6 +234,7 @@ class ProductModel extends Equatable {
     this.reviews,
     this.attributes,
     this.isGiftCard,
+    this.laybyEligibilityJson,
   });
 
   @override
@@ -444,6 +447,10 @@ class ProductModel extends Equatable {
               .map((e) => AttributeModel.fromJson(e as Map<String, dynamic>))
               .toList(),
       isGiftCard: _parseBoolField(json['is_gift_card']),
+      laybyEligibilityJson:
+          json['layby_eligibility'] is Map<String, dynamic>
+              ? json['layby_eligibility'] as Map<String, dynamic>
+              : null,
     );
   }
 
@@ -750,6 +757,10 @@ extension ProductModelX on ProductModel {
       reviews: reviews?.map((e) => e.toEntity()).toList(),
       attributes: attributes?.map((e) => e.toEntity()).toList(),
       isGiftCard: isGiftCard == 1,
+      laybyEligibility:
+          laybyEligibilityJson != null
+              ? LaybyEligibility.fromJson(laybyEligibilityJson!)
+              : null,
     );
   }
 }

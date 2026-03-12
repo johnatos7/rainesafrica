@@ -14,7 +14,6 @@ import 'package:flutter_riverpod_clean_architecture/features/currency/presentati
 import 'package:flutter_riverpod_clean_architecture/features/wishlist/presentation/widgets/wishlist_button.dart';
 import 'package:flutter_riverpod_clean_architecture/features/layby/presentation/widgets/layby_badge_widget.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/presentation/widgets/product_card.dart';
-import 'package:flutter_riverpod_clean_architecture/core/constants/app_constants.dart';
 import 'package:flutter_riverpod_clean_architecture/features/categories/providers/category_providers.dart';
 import 'package:flutter_riverpod_clean_architecture/features/categories/domain/entities/category_entity.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/presentation/widgets/color_attribute_indicator.dart';
@@ -989,8 +988,7 @@ class _CategoryProductsScreenState
                       ColorAttributeIndicator(product: product),
                       // Layby badge
                       LaybyBadgeWidget(
-                        productPrice: product.effectivePrice,
-                        threshold: AppConstants.laybyEligibilityThreshold,
+                        isEligible: product.laybyEligibility?.eligible ?? false,
                       ),
                     ],
                   ),

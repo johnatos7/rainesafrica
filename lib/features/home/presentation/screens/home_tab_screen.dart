@@ -16,6 +16,7 @@ import 'package:flutter_riverpod_clean_architecture/features/products/presentati
 import 'package:flutter_riverpod_clean_architecture/features/products/presentation/widgets/product_search_screen.dart';
 import 'package:flutter_riverpod_clean_architecture/features/cart/presentation/widgets/cart_icon_widget.dart';
 import 'package:flutter_riverpod_clean_architecture/features/products/presentation/screens/category_products_screen.dart';
+import 'package:flutter_riverpod_clean_architecture/features/home/presentation/screens/section_products_screen.dart';
 import 'package:flutter_riverpod_clean_architecture/features/home/presentation/widgets/home_skeleton_widgets.dart';
 import 'package:flutter_riverpod_clean_architecture/features/notifications/presentation/widgets/notification_icon_widget.dart';
 
@@ -108,6 +109,12 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
             title: info['section1']?.title ?? 'Trending Products',
             provider: section1ProductsProvider,
             colors: colors,
+            onViewAll:
+                (products) => _navigateToSection(
+                  context,
+                  info['section1']?.title ?? 'Trending Products',
+                  products,
+                ),
           ),
 
         // Interspersed banner (index 0) — replaces dead section3 two-column banners
@@ -123,6 +130,12 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
             title: info['section4']?.title ?? 'Featured Products',
             provider: section4ProductsProvider,
             colors: colors,
+            onViewAll:
+                (products) => _navigateToSection(
+                  context,
+                  info['section4']?.title ?? 'Featured Products',
+                  products,
+                ),
           ),
 
         // Interspersed banner (index 1)
@@ -138,6 +151,12 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
             title: info['home_appliances']?.title ?? 'Home Appliances',
             provider: homeAppliancesProductsProvider,
             colors: colors,
+            onViewAll:
+                (products) => _navigateToSection(
+                  context,
+                  info['home_appliances']?.title ?? 'Home Appliances',
+                  products,
+                ),
           ),
 
         // Interspersed banner (index 2)
@@ -153,6 +172,12 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
             title: info['section7']?.title ?? 'Best Sellers',
             provider: section7ProductsProvider,
             colors: colors,
+            onViewAll:
+                (products) => _navigateToSection(
+                  context,
+                  info['section7']?.title ?? 'Best Sellers',
+                  products,
+                ),
           ),
 
         // Interspersed banner (index 3)
@@ -167,6 +192,9 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
           title: 'Top Picks For You',
           provider: topPicksProductsProvider,
           colors: colors,
+          onViewAll:
+              (products) =>
+                  _navigateToSection(context, 'Top Picks For You', products),
         ),
       ],
     );
@@ -642,12 +670,28 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
 
   // --- Product Sections ---
 
+  void _navigateToSection(
+    BuildContext context,
+    String title,
+    List<ProductEntity> products,
+  ) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) =>
+                SectionProductsScreen(title: title, products: products),
+      ),
+    );
+  }
+
   Widget _buildSectionFromProvider({
     required BuildContext context,
     required WidgetRef ref,
     required String title,
     required FutureProvider<List<dynamic>> provider,
     required ColorScheme colors,
+    void Function(List<ProductEntity>)? onViewAll,
   }) {
     final async = ref.watch(provider);
     return Container(
@@ -656,7 +700,19 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionTitle(title: title, showViewAll: false),
+          SectionTitle(
+            title: title,
+            showViewAll: onViewAll != null,
+            onViewAll:
+                onViewAll != null
+                    ? () {
+                      final products = async.valueOrNull;
+                      if (products != null && products.isNotEmpty) {
+                        onViewAll(products.cast<ProductEntity>());
+                      }
+                    }
+                    : null,
+          ),
           const SizedBox(height: 12),
           SizedBox(
             height: ResponsiveUtils.productSectionHeight(context),

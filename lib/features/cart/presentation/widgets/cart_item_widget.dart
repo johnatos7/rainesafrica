@@ -47,7 +47,11 @@ class _CartItemWidgetState extends ConsumerState<CartItemWidget> {
     }
 
     final isOnSale = product.isOnSale;
-    final effectivePrice = product.effectivePrice;
+    // Use stored unitPrice (variation-specific) if available, otherwise fall back to product base price
+    final effectivePrice =
+        (widget.item.unitPrice > 0)
+            ? widget.item.unitPrice
+            : product.effectivePrice;
     final originalPrice = product.price;
 
     return Container(
@@ -664,7 +668,9 @@ class _CartItemWidgetState extends ConsumerState<CartItemWidget> {
                       children: [
                         Text(
                           ref.watch(currencyFormattingProvider)(
-                            product.effectivePrice ?? widget.item.unitPrice,
+                            (widget.item.unitPrice > 0)
+                                ? widget.item.unitPrice.toDouble()
+                                : (product.effectivePrice ?? 0.0),
                           ),
                           style: TextStyle(
                             fontSize: 16,

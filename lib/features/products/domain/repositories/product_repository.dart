@@ -143,6 +143,11 @@ abstract class ProductRepository {
     required List<int> ids,
   });
 
+  /// Get products by explicit list of SKUs using /api/product?skus=sku1,sku2
+  Future<Either<Failure, List<ProductEntity>>> getProductsBySkus({
+    required List<String> skus,
+  });
+
   /// Get recently viewed products (from local storage)
   Future<Either<Failure, List<ProductEntity>>> getRecentlyViewedProducts({
     int? limit,

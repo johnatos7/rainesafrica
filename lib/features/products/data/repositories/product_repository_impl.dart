@@ -775,4 +775,24 @@ class ProductRepositoryImpl implements ProductRepository {
       return const Left(ServerFailure());
     }
   }
+
+  @override
+  Future<Either<Failure, List<ProductEntity>>> getProductsBySkus({
+    required List<String> skus,
+  }) async {
+    try {
+      if (await _networkInfo.isConnected) {
+        final products = await _remoteDataSource.getProductsBySkus(skus: skus);
+        return Right(products.map((model) => model.toEntity()).toList());
+      } else {
+        return const Left(NetworkFailure());
+      }
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message));
+    } on NetworkException {
+      return const Left(NetworkFailure());
+    } on Exception {
+      return const Left(ServerFailure());
+    }
+  }
 }

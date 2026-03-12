@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'attribute_entity.dart';
+import 'package:flutter_riverpod_clean_architecture/features/layby/domain/entities/layby_entity.dart';
 
 class ShippingOptionsEntity extends Equatable {
   final bool? hasExpeditedShipping;
@@ -104,6 +105,7 @@ class ProductEntity extends Equatable {
   final List<ProductReviewEntity>? reviews;
   final List<AttributeEntity>? attributes;
   final bool? isGiftCard;
+  final LaybyEligibility? laybyEligibility;
 
   const ProductEntity({
     required this.id,
@@ -173,6 +175,7 @@ class ProductEntity extends Equatable {
     this.tags,
     this.reviews,
     this.isGiftCard,
+    this.laybyEligibility,
   });
 
   @override
@@ -244,6 +247,7 @@ class ProductEntity extends Equatable {
     reviews,
     attributes,
     isGiftCard,
+    laybyEligibility,
   ];
 
   // Factory constructor to create an empty product
@@ -316,6 +320,7 @@ class ProductEntity extends Equatable {
       reviews: null,
       attributes: null,
       isGiftCard: false,
+      laybyEligibility: null,
     );
   }
 
@@ -388,6 +393,7 @@ class ProductEntity extends Equatable {
     List<ProductReviewEntity>? reviews,
     List<AttributeEntity>? attributes,
     bool? isGiftCard,
+    LaybyEligibility? laybyEligibility,
   }) {
     return ProductEntity(
       id: id ?? this.id,
@@ -459,6 +465,7 @@ class ProductEntity extends Equatable {
       reviews: reviews ?? this.reviews,
       attributes: attributes ?? this.attributes,
       isGiftCard: isGiftCard ?? this.isGiftCard,
+      laybyEligibility: laybyEligibility ?? this.laybyEligibility,
     );
   }
 

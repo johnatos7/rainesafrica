@@ -301,42 +301,47 @@ class OrderProductsList extends StatelessWidget {
               ],
             ),
             // Per-item Status & ETA row
-            // Hide ETA when status is collected or delivered
-            if ((product.pivot.itemStatus != null &&
-                    product.pivot.itemStatus!.trim().isNotEmpty) ||
-                (product.pivot.eta != null &&
-                    product.pivot.eta!.trim().isNotEmpty &&
-                    !_isTerminalStatus(product.pivot.itemStatus))) ...[
-              const SizedBox(height: 10),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: colors.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: colors.outline.withOpacity(0.15)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Status row
-                    if (product.pivot.itemStatus != null &&
-                        product.pivot.itemStatus!.trim().isNotEmpty) ...[
-                      _buildStatusRow(product.pivot.itemStatus!, colors, theme),
-                    ],
-                    // ETA row – hidden once order is collected or delivered
-                    if (product.pivot.eta != null &&
-                        product.pivot.eta!.trim().isNotEmpty &&
-                        !_isTerminalStatus(product.pivot.itemStatus)) ...[
+            // Hide entire section when order status is "Ready for Collection"
+            if (!_isReadyForCollection())
+              if ((product.pivot.itemStatus != null &&
+                      product.pivot.itemStatus!.trim().isNotEmpty) ||
+                  (product.pivot.eta != null &&
+                      product.pivot.eta!.trim().isNotEmpty &&
+                      !_isTerminalStatus(product.pivot.itemStatus))) ...[
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: colors.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: colors.outline.withOpacity(0.15)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Status row
                       if (product.pivot.itemStatus != null &&
-                          product.pivot.itemStatus!.trim().isNotEmpty)
-                        const SizedBox(height: 8),
-                      _buildEtaRow(product.pivot.eta!, colors, theme),
+                          product.pivot.itemStatus!.trim().isNotEmpty) ...[
+                        _buildStatusRow(
+                          product.pivot.itemStatus!,
+                          colors,
+                          theme,
+                        ),
+                      ],
+                      // ETA row – hidden once order is collected or delivered
+                      if (product.pivot.eta != null &&
+                          product.pivot.eta!.trim().isNotEmpty &&
+                          !_isTerminalStatus(product.pivot.itemStatus)) ...[
+                        if (product.pivot.itemStatus != null &&
+                            product.pivot.itemStatus!.trim().isNotEmpty)
+                          const SizedBox(height: 8),
+                        _buildEtaRow(product.pivot.eta!, colors, theme),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
             const SizedBox(height: 12),
             ProductActionButtons(
               orderId: orderId,
@@ -348,6 +353,14 @@ class OrderProductsList extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  /// Returns true if the order-level status is "Ready for Collection".
+  bool _isReadyForCollection() {
+    if (orderStatusName == null) return false;
+    return orderStatusName!.toLowerCase().trim().contains(
+      'ready for collection',
     );
   }
 

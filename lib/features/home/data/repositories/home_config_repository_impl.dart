@@ -65,10 +65,16 @@ class HomeConfigRepositoryImpl implements HomeConfigRepository {
     if (!section.status) {
       return const Right([]);
     }
+    // Try IDs first
     final ids = _sanitizeIds(section.productIds);
-    if (ids.isEmpty) return const Right([]);
-    // Use repository interface method to fetch by IDs
-    return _productRepository.getProductsByIds(ids: ids);
+    if (ids.isNotEmpty) {
+      return _productRepository.getProductsByIds(ids: ids);
+    }
+    // Fall back to SKUs if IDs are empty
+    if (section.productSkus.isNotEmpty) {
+      return _productRepository.getProductsBySkus(skus: section.productSkus);
+    }
+    return const Right([]);
   }
 
   @override

@@ -10,17 +10,6 @@ class LaybyRepositoryImpl implements LaybyRepository {
     : _remoteDataSource = remoteDataSource;
 
   @override
-  Future<LaybyEligibility> checkEligibility({
-    required int productId,
-    int? variationId,
-  }) async {
-    return _remoteDataSource.checkEligibility(
-      productId: productId,
-      variationId: variationId,
-    );
-  }
-
-  @override
   Future<List<LaybyDocument>> getUploadedDocuments() async {
     return _remoteDataSource.getUploadedDocuments();
   }
@@ -83,13 +72,24 @@ class LaybyRepositoryImpl implements LaybyRepository {
     required int applicationId,
     required double amount,
     required String paymentMethod,
-    String currency = 'ZAR',
+    String currency = 'USD',
   }) async {
     return _remoteDataSource.makePayment(
       applicationId: applicationId,
       amount: amount,
       paymentMethod: paymentMethod,
       currency: currency,
+    );
+  }
+
+  @override
+  Future<void> updateApplicationDocument({
+    required int applicationId,
+    required LaybyUpdateDocumentRequest request,
+  }) async {
+    return _remoteDataSource.updateApplicationDocument(
+      applicationId: applicationId,
+      request: request,
     );
   }
 }

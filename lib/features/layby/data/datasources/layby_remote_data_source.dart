@@ -5,11 +5,6 @@ import 'package:flutter_riverpod_clean_architecture/features/layby/domain/entiti
 
 /// Abstract data source for Layby API endpoints
 abstract class LaybyRemoteDataSource {
-  Future<LaybyEligibility> checkEligibility({
-    required int productId,
-    int? variationId,
-  });
-
   Future<List<LaybyDocument>> getUploadedDocuments();
 
   Future<Map<String, dynamic>> uploadDocumentChunk({
@@ -40,7 +35,12 @@ abstract class LaybyRemoteDataSource {
     required int applicationId,
     required double amount,
     required String paymentMethod,
-    String currency = 'ZAR',
+    String currency = 'USD',
+  });
+
+  Future<void> updateApplicationDocument({
+    required int applicationId,
+    required LaybyUpdateDocumentRequest request,
   });
 }
 
@@ -52,24 +52,16 @@ class LaybyRemoteDataSourceImpl implements LaybyRemoteDataSource {
     : _apiClient = apiClient;
 
   @override
-  Future<LaybyEligibility> checkEligibility({
-    required int productId,
-    int? variationId,
-  }) async {
-    final data = <String, dynamic>{'product_id': productId};
-    if (variationId != null) {
-      data['variation_id'] = variationId;
-    }
-    final response = await _apiClient.post(
-      '/api/layby/check-eligibility',
-      data: data,
-    );
-    return LaybyEligibility.fromJson(response as Map<String, dynamic>);
-  }
-
-  @override
   Future<List<LaybyDocument>> getUploadedDocuments() async {
-    final response = await _apiClient.get('/api/layby/uploaded-document');
+    final response = await _apiClient.get('/api/layby/uploaded-documents');
+    // API wraps documents in a 'documents' key
+    if (response is Map<String, dynamic> && response['documents'] != null) {
+      final list = response['documents'] as List<dynamic>;
+      return list
+          .map((e) => LaybyDocument.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    // Fallback: direct list response
     final list = response as List<dynamic>? ?? [];
     return list
         .map((e) => LaybyDocument.fromJson(e as Map<String, dynamic>))
@@ -167,7 +159,7 @@ class LaybyRemoteDataSourceImpl implements LaybyRemoteDataSource {
     required int applicationId,
     required double amount,
     required String paymentMethod,
-    String currency = 'ZAR',
+    String currency = 'USD',
   }) async {
     final response = await _apiClient.post(
       '/api/layby/applications/$applicationId/payment',
@@ -178,5 +170,16 @@ class LaybyRemoteDataSourceImpl implements LaybyRemoteDataSource {
       },
     );
     return response as Map<String, dynamic>;
+  }
+
+  @override
+  Future<void> updateApplicationDocument({
+    required int applicationId,
+    required LaybyUpdateDocumentRequest request,
+  }) async {
+    await _apiClient.put(
+      '/api/layby/applications/$applicationId/document',
+      data: request.toJson(),
+    );
   }
 }

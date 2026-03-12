@@ -22,41 +22,6 @@ final laybyRepositoryProvider = Provider<LaybyRepository>((ref) {
 });
 
 // ---------------------------------------------------------------------------
-// Eligibility check
-// ---------------------------------------------------------------------------
-
-/// Parameter class for eligibility check
-class EligibilityParams {
-  final int productId;
-  final int? variationId;
-
-  const EligibilityParams({required this.productId, this.variationId});
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is EligibilityParams &&
-          runtimeType == other.runtimeType &&
-          productId == other.productId &&
-          variationId == other.variationId;
-
-  @override
-  int get hashCode => productId.hashCode ^ (variationId?.hashCode ?? 0);
-}
-
-final laybyEligibilityProvider =
-    FutureProvider.family<LaybyEligibility, EligibilityParams>((
-      ref,
-      params,
-    ) async {
-      final repo = ref.watch(laybyRepositoryProvider);
-      return repo.checkEligibility(
-        productId: params.productId,
-        variationId: params.variationId,
-      );
-    });
-
-// ---------------------------------------------------------------------------
 // Uploaded documents
 // ---------------------------------------------------------------------------
 
@@ -109,7 +74,7 @@ final laybyApplicationDetailsProvider =
     });
 
 // ---------------------------------------------------------------------------
-// Layby Notifier — handles apply, upload, payment state
+// Layby Notifier — handles apply, upload, payment, document update state
 // ---------------------------------------------------------------------------
 
 @immutable
@@ -152,11 +117,13 @@ class LaybyNotifier extends StateNotifier<LaybyState> {
     : _repository = repository,
       super(const LaybyState());
 
-  /// Upload a document in chunks and return the attachment
+  /// Upload a document in chunks and return the attachment.
+  ///
+  /// Uses 512KB chunks (server limit: 1MB, recommended 512KB for Cloudflare).
   Future<LaybyAttachment?> uploadDocument({
     required Uint8List fileBytes,
     required String fileName,
-    int chunkSize = 90 * 1024, // 90KB chunks (server limit: 100KB)
+    int chunkSize = 512 * 1024, // 512KB chunks
   }) async {
     state = state.copyWith(isLoading: true, error: null, uploadProgress: 0);
 
@@ -239,7 +206,7 @@ class LaybyNotifier extends StateNotifier<LaybyState> {
     required int applicationId,
     required double amount,
     required String paymentMethod,
-    String currency = 'ZAR',
+    String currency = 'USD',
   }) async {
     state = state.copyWith(isLoading: true, error: null);
 
@@ -256,6 +223,30 @@ class LaybyNotifier extends StateNotifier<LaybyState> {
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       return null;
+    }
+  }
+
+  /// Link/update ID document on an existing application
+  Future<bool> updateApplicationDocument({
+    required int applicationId,
+    required LaybyUpdateDocumentRequest request,
+  }) async {
+    state = state.copyWith(isLoading: true, error: null);
+
+    try {
+      print('📄 [LAYBY DOC] Updating document for application $applicationId');
+      print('📄 [LAYBY DOC] Request body: ${request.toJson()}');
+      await _repository.updateApplicationDocument(
+        applicationId: applicationId,
+        request: request,
+      );
+      print('📄 [LAYBY DOC] Document update successful');
+      state = state.copyWith(isLoading: false);
+      return true;
+    } catch (e) {
+      print('📄 [LAYBY DOC] Document update FAILED: $e');
+      state = state.copyWith(isLoading: false, error: e.toString());
+      return false;
     }
   }
 

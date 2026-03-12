@@ -8,12 +8,14 @@ class _CollectionPoint {
   final String address;
   final List<String> phoneNumbers;
   final String? email;
+  final String directionsUrl;
 
   _CollectionPoint({
     required this.location,
     required this.flag,
     required this.address,
     required this.phoneNumbers,
+    required this.directionsUrl,
     this.email,
   });
 }
@@ -29,6 +31,7 @@ class CollectionPointsScreen extends StatelessWidget {
           'Shop No. 6 Rhodesville Shops\nNo 32 Rhodesville Avenue Greendale, Harare',
       phoneNumbers: ['+263779411028', '+263717168255'],
       email: 'admin@raines.africa',
+      directionsUrl: 'https://maps.app.goo.gl/EWGGRPPtBrs7t3Ym6?g_st=aw',
     ),
     _CollectionPoint(
       location: 'Bulawayo, Zimbabwe',
@@ -36,6 +39,7 @@ class CollectionPointsScreen extends StatelessWidget {
       address:
           'Shop 20. 90 on George Square\nNo 90 George Silundika Street\nBetween 9th Avenue and 8th Avenue, opposite Watering Hole',
       phoneNumbers: ['+263771614722'],
+      directionsUrl: 'https://maps.app.goo.gl/ibyq35i3fZewFx5X8?g_st=aw',
     ),
     _CollectionPoint(
       location: 'Lusaka, Zambia',
@@ -43,6 +47,7 @@ class CollectionPointsScreen extends StatelessWidget {
       address:
           'Niyati Plaza, Kalingalinga Area\n35235 Alick Nkhata Rd, Lusaka, Zambia',
       phoneNumbers: ['+260777265389', '+260765914363'],
+      directionsUrl: 'https://maps.app.goo.gl/FtsiGjHU4U7Jc1ir7?g_st=aw',
     ),
     _CollectionPoint(
       location: 'Mutare, Zimbabwe',
@@ -50,6 +55,7 @@ class CollectionPointsScreen extends StatelessWidget {
       address:
           '1A Twin Towers Complex\n37 Robert Mugabe Rd, Mutare\nClose to Sanhanga Building',
       phoneNumbers: ['+263789700595'],
+      directionsUrl: 'https://maps.app.goo.gl/raahFjYny63gvZ226?g_st=aw',
     ),
   ];
 
@@ -291,7 +297,7 @@ class CollectionPointsScreen extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: () => _openMaps(point.address, point.location),
+                onPressed: () => _openMaps(point.directionsUrl),
                 icon: const Icon(Icons.directions_outlined, size: 18),
                 label: const Text('Get Directions'),
                 style: OutlinedButton.styleFrom(
@@ -324,11 +330,8 @@ class CollectionPointsScreen extends StatelessWidget {
     }
   }
 
-  void _openMaps(String address, String location) async {
-    final query = Uri.encodeComponent('$address, $location');
-    final uri = Uri.parse(
-      'https://www.google.com/maps/search/?api=1&query=$query',
-    );
+  void _openMaps(String directionsUrl) async {
+    final uri = Uri.parse(directionsUrl);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }

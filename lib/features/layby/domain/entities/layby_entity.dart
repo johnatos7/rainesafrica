@@ -23,55 +23,46 @@ int? _toIntOrNull(dynamic v) {
   return int.tryParse(v.toString());
 }
 
-/// Layby eligibility check response
+/// Layby eligibility data embedded in the product response.
+///
+/// This comes from the `layby_eligibility` field in the product JSON,
+/// NOT from a separate API call.
 class LaybyEligibility {
   final bool eligible;
-  final double price;
-  final double priceUsd;
-  final String currency;
-  final double threshold;
-  final bool isSaleProduct;
   final int depositPercentage;
   final List<int> availableDurations;
+  final double minPrice;
+  final bool isSaleProduct;
 
   const LaybyEligibility({
     required this.eligible,
-    required this.price,
-    required this.priceUsd,
-    required this.currency,
-    required this.threshold,
-    required this.isSaleProduct,
     required this.depositPercentage,
     required this.availableDurations,
+    required this.minPrice,
+    required this.isSaleProduct,
   });
 
   factory LaybyEligibility.fromJson(Map<String, dynamic> json) {
     return LaybyEligibility(
       eligible: json['eligible'] as bool? ?? false,
-      price: _toDouble(json['price']),
-      priceUsd: _toDouble(json['price_usd']),
-      currency: json['currency'] as String? ?? 'USD',
-      threshold: _toDouble(json['threshold']),
-      isSaleProduct: json['is_sale_product'] as bool? ?? false,
       depositPercentage: _toInt(json['deposit_percentage']),
       availableDurations:
           (json['available_durations'] as List<dynamic>?)
               ?.map((e) => _toInt(e))
               .toList() ??
           [],
+      minPrice: _toDouble(json['min_price']),
+      isSaleProduct: json['is_sale_product'] as bool? ?? false,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'eligible': eligible,
-      'price': price,
-      'price_usd': priceUsd,
-      'currency': currency,
-      'threshold': threshold,
-      'is_sale_product': isSaleProduct,
       'deposit_percentage': depositPercentage,
       'available_durations': availableDurations,
+      'min_price': minPrice,
+      'is_sale_product': isSaleProduct,
     };
   }
 }
@@ -79,7 +70,7 @@ class LaybyEligibility {
 /// Uploaded ID document
 class LaybyDocument {
   final int id;
-  final int attachmentId;
+  final String attachmentId;
   final String type;
   final String number;
   final String url;
@@ -97,7 +88,7 @@ class LaybyDocument {
   factory LaybyDocument.fromJson(Map<String, dynamic> json) {
     return LaybyDocument(
       id: json['id'] as int,
-      attachmentId: json['attachment_id'] as int,
+      attachmentId: json['attachment_id']?.toString() ?? '',
       type: json['type'] as String? ?? '',
       number: json['number'] as String? ?? '',
       url: json['url'] as String? ?? '',
@@ -332,6 +323,7 @@ class LaybyPayment {
   final String status;
   final String? paymentMethod;
   final String? paymentNumber;
+  final String? paidAt;
   final String? createdAt;
   final String? updatedAt;
 
@@ -341,6 +333,7 @@ class LaybyPayment {
     required this.status,
     this.paymentMethod,
     this.paymentNumber,
+    this.paidAt,
     this.createdAt,
     this.updatedAt,
   });
@@ -353,6 +346,7 @@ class LaybyPayment {
           json['payment_status'] as String? ?? json['status'] as String? ?? '',
       paymentMethod: json['payment_method'] as String?,
       paymentNumber: json['payment_number'] as String?,
+      paidAt: json['paid_at'] as String?,
       createdAt: json['created_at'] as String?,
       updatedAt: json['updated_at'] as String?,
     );
@@ -365,6 +359,7 @@ class LaybyPayment {
       'payment_status': status,
       'payment_method': paymentMethod,
       'payment_number': paymentNumber,
+      'paid_at': paidAt,
       'created_at': createdAt,
       'updated_at': updatedAt,
     };
@@ -405,7 +400,7 @@ class LaybyApplication {
   final String? idDocumentType;
   final String? idDocumentNumber;
   final int? orderId;
-  final int? idDocumentAttachmentId;
+  final String? idDocumentAttachmentId;
   final String? cancellationReason;
   final String? cancelledAt;
   final dynamic cancelledBy;
@@ -494,7 +489,7 @@ class LaybyApplication {
       idDocumentType: json['id_document_type'] as String?,
       idDocumentNumber: json['id_document_number'] as String?,
       orderId: _toIntOrNull(json['order_id']),
-      idDocumentAttachmentId: _toIntOrNull(json['id_document_attachment_id']),
+      idDocumentAttachmentId: json['id_document_attachment_id']?.toString(),
       cancellationReason: json['cancellation_reason'] as String?,
       cancelledAt: json['cancelled_at'] as String?,
       cancelledBy: json['cancelled_by'],
@@ -572,6 +567,17 @@ class LaybyApplication {
 
   /// Get the product thumbnail URL
   String? get thumbnailUrl => product?.productThumbnail?.imageUrl;
+
+  /// Whether the user still needs to upload an ID document
+  bool get needsDocument =>
+      idDocumentAttachmentId == null || idDocumentAttachmentId!.isEmpty;
+
+  /// Whether payment can be made on this application
+  bool get canPay {
+    final s = status.toLowerCase();
+    return (s == 'active' || s == 'approved') &&
+        (double.tryParse(balanceRemaining) ?? 0) > 0;
+  }
 }
 
 /// Paginated response for applications list
@@ -613,16 +619,19 @@ class LaybyApplicationsResponse {
   bool get hasMore => currentPage < lastPage;
 }
 
-/// Request model for applying for layby
+/// Request model for applying for layby.
+///
+/// Document fields are all optional — the user can upload their ID document
+/// later via the PUT /api/layby/applications/{id}/document endpoint.
 class LaybyApplyRequest {
   final int productId;
   final int? variationId;
   final List<int>? selectedAttributeIds;
   final String? variationDisplayName;
   final int durationMonths;
-  final String idDocumentAttachmentId;
-  final String idDocumentType;
-  final String idDocumentNumber;
+  final String? idDocumentAttachmentId;
+  final String? idDocumentType;
+  final String? idDocumentNumber;
 
   const LaybyApplyRequest({
     required this.productId,
@@ -630,9 +639,9 @@ class LaybyApplyRequest {
     this.selectedAttributeIds,
     this.variationDisplayName,
     required this.durationMonths,
-    required this.idDocumentAttachmentId,
-    required this.idDocumentType,
-    required this.idDocumentNumber,
+    this.idDocumentAttachmentId,
+    this.idDocumentType,
+    this.idDocumentNumber,
   });
 
   Map<String, dynamic> toJson() {
@@ -644,6 +653,30 @@ class LaybyApplyRequest {
       if (variationDisplayName != null)
         'variation_display_name': variationDisplayName,
       'duration_months': durationMonths,
+      if (idDocumentAttachmentId != null)
+        'id_document_attachment_id': idDocumentAttachmentId,
+      if (idDocumentType != null) 'id_document_type': idDocumentType,
+      if (idDocumentNumber != null) 'id_document_number': idDocumentNumber,
+    };
+  }
+}
+
+/// Request model for linking/updating a document on an existing application.
+///
+/// Used with PUT /api/layby/applications/{id}/document
+class LaybyUpdateDocumentRequest {
+  final String idDocumentAttachmentId;
+  final String idDocumentType;
+  final String idDocumentNumber;
+
+  const LaybyUpdateDocumentRequest({
+    required this.idDocumentAttachmentId,
+    required this.idDocumentType,
+    required this.idDocumentNumber,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
       'id_document_attachment_id': idDocumentAttachmentId,
       'id_document_type': idDocumentType,
       'id_document_number': idDocumentNumber,

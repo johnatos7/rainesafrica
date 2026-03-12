@@ -1,22 +1,19 @@
 import 'package:flutter/material.dart';
 
-/// A compact badge shown on product listing cards for layby-eligible products
+/// A compact badge shown on product listing cards for layby-eligible products.
+///
+/// Now accepts an `isEligible` flag directly from the product's
+/// `layby_eligibility.eligible` field instead of using a hardcoded threshold.
 class LaybyBadgeWidget extends StatelessWidget {
-  /// The product's effective price
-  final double productPrice;
+  /// Whether the product is eligible for layby.
+  /// Defaults to false when the product API doesn't include eligibility data.
+  final bool isEligible;
 
-  /// The layby eligibility threshold (default $100)
-  final double threshold;
-
-  const LaybyBadgeWidget({
-    super.key,
-    required this.productPrice,
-    this.threshold = 100.0,
-  });
+  const LaybyBadgeWidget({super.key, required this.isEligible});
 
   @override
   Widget build(BuildContext context) {
-    if (productPrice < threshold) return const SizedBox.shrink();
+    if (!isEligible) return const SizedBox.shrink();
 
     return Container(
       margin: const EdgeInsets.only(top: 2),

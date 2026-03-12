@@ -1,3 +1,19 @@
+/// Parses products_ids which can come as either a List or a Map from the API.
+/// The backend sometimes returns it as {"0": 123, "1": 456, ...} instead of [123, 456, ...].
+List<int?> _parseProductsIds(dynamic raw) {
+  if (raw == null) return [];
+  if (raw is List<dynamic>) {
+    return raw.map((e) => e == null ? null : (e as num).toInt()).toList();
+  }
+  if (raw is Map) {
+    // Map format: {"0": 123, "1": 456, ...} — extract values
+    return raw.values
+        .map((e) => e == null ? null : (e as num).toInt())
+        .toList();
+  }
+  return [];
+}
+
 class HomeConfigModel {
   final int id;
   final String slug;
@@ -44,10 +60,7 @@ class HomeContent {
       mainContent: MainContent.fromJson(
         json['main_content'] as Map<String, dynamic>,
       ),
-      productsIds:
-          (json['products_ids'] as List<dynamic>)
-              .map((e) => e == null ? null : (e as num).toInt())
-              .toList(),
+      productsIds: _parseProductsIds(json['products_ids']),
       featuredBanners: FeaturedBanners.fromJson(
         json['featured_banners'] as Map<String, dynamic>,
       ),
@@ -378,23 +391,45 @@ class SectionProducts {
   final bool status;
   final String? description;
   final List<int> productIds;
+  final List<String> productSkus;
 
   SectionProducts({
     required this.title,
     required this.status,
     this.description,
     required this.productIds,
+    this.productSkus = const [],
   });
 
   factory SectionProducts.fromJson(Map<String, dynamic> json) {
+    // Parse product_ids safely — may be a List or Map
+    List<int> ids = [];
+    try {
+      final rawIds = json['product_ids'];
+      if (rawIds is List<dynamic>) {
+        ids = rawIds.map((e) => (e as num).toInt()).toList();
+      } else if (rawIds is Map) {
+        ids = rawIds.values.map((e) => (e as num).toInt()).toList();
+      }
+    } catch (_) {}
+
+    // Parse product_skus safely
+    List<String> skus = [];
+    try {
+      final rawSkus = json['product_skus'];
+      if (rawSkus is List<dynamic>) {
+        skus = rawSkus.map((e) => e.toString()).toList();
+      } else if (rawSkus is String && rawSkus.isNotEmpty) {
+        skus = rawSkus.split(',').map((e) => e.trim()).toList();
+      }
+    } catch (_) {}
+
     return SectionProducts(
       title: json['title'] as String,
       status: json['status'] as bool,
       description: json['description'] as String?,
-      productIds:
-          (json['product_ids'] as List<dynamic>)
-              .map((e) => (e as num).toInt())
-              .toList(),
+      productIds: ids,
+      productSkus: skus,
     );
   }
 }

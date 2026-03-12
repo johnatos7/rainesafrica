@@ -3,20 +3,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod_clean_architecture/features/layby/domain/entities/layby_entity.dart';
 import 'package:flutter_riverpod_clean_architecture/features/layby/presentation/providers/layby_provider.dart';
-import 'package:flutter_riverpod_clean_architecture/features/layby/presentation/widgets/document_upload_widget.dart';
 import 'package:flutter_riverpod_clean_architecture/features/currency/presentation/providers/currency_provider.dart';
 
-/// Multi-step layby application screen
+/// Multi-step Layby application screen.
+///
+/// **Redesigned 2-step flow:**
+/// - Step 1: Choose plan (duration) and review payment breakdown
+/// - Step 2: Review & submit (no document required)
+///
+/// Document upload is optional and can be done later from the details screen.
 class LaybyApplicationScreen extends ConsumerStatefulWidget {
   final int productId;
   final int? variationId;
   final LaybyEligibility eligibility;
+  final double productPrice;
 
   const LaybyApplicationScreen({
     super.key,
     required this.productId,
     this.variationId,
     required this.eligibility,
+    required this.productPrice,
   });
 
   @override
@@ -28,552 +35,464 @@ class _LaybyApplicationScreenState
     extends ConsumerState<LaybyApplicationScreen> {
   int _currentStep = 0;
   int? _selectedDuration;
-  String _documentType = 'id_card';
-  final _documentNumberController = TextEditingController();
-  LaybyAttachment? _uploadedAttachment;
-  LaybyDocument? _selectedExistingDoc;
-  bool _isSubmitting = false;
+  bool _agreedToTerms = false;
 
-  final List<String> _documentTypes = [
-    'id_card',
-    'passport',
-    'drivers_license',
-  ];
+  // Computed payment values
+  double get _deposit =>
+      widget.productPrice * widget.eligibility.depositPercentage / 100;
 
-  static const _documentTypeLabels = {
-    'id_card': 'ID Card',
-    'passport': 'Passport',
-    'drivers_license': "Driver's License",
-  };
+  double get _monthlyPayment {
+    if (_selectedDuration == null || _selectedDuration! <= 0) return 0;
+    return (widget.productPrice - _deposit) / _selectedDuration!;
+  }
+
+  double get _totalAmount => widget.productPrice;
 
   @override
   void initState() {
     super.initState();
-    if (widget.eligibility.availableDurations.isNotEmpty) {
-      _selectedDuration = widget.eligibility.availableDurations.first;
+    final durations = widget.eligibility.availableDurations;
+    // Default to first available duration
+    if (durations.isNotEmpty) {
+      _selectedDuration = durations.first;
     }
-  }
-
-  @override
-  void dispose() {
-    _documentNumberController.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final laybyState = ref.watch(laybyNotifierProvider);
 
     return Scaffold(
-      backgroundColor: colors.surface,
+      backgroundColor: colors.background,
       appBar: AppBar(
-        title: const Text(
-          'Apply for Layby',
-          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
-        ),
-        centerTitle: true,
         backgroundColor: colors.surface,
-        foregroundColor: colors.onSurface,
         elevation: 0,
+        title: Text(
+          'Apply for Layby',
+          style: TextStyle(
+            color: colors.onSurface,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: colors.onSurface),
+          onPressed: () {
+            if (_currentStep > 0) {
+              setState(() => _currentStep--);
+            } else {
+              Navigator.of(context).pop();
+            }
+          },
+        ),
       ),
       body: Column(
         children: [
           // Step indicator
           _buildStepIndicator(colors),
-          const Divider(height: 1),
 
           // Step content
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: _buildCurrentStep(colors),
-              ),
+              child:
+                  _currentStep == 0
+                      ? _buildPlanSelectionStep(colors)
+                      : _buildReviewStep(colors),
             ),
           ),
 
-          // Bottom buttons
-          _buildBottomButtons(colors),
+          // Bottom action bar
+          _buildBottomBar(colors, laybyState),
         ],
       ),
     );
   }
 
+  // ─── Step Indicator ───
+
   Widget _buildStepIndicator(ColorScheme colors) {
-    final steps = ['Plan', 'ID Verification', 'Review'];
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border(bottom: BorderSide(color: colors.outlineVariant)),
+      ),
       child: Row(
-        children: List.generate(steps.length, (index) {
-          final isActive = index <= _currentStep;
-          final isCurrent = index == _currentStep;
-          return Expanded(
-            child: Row(
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color:
-                        isActive
-                            ? colors.primary
-                            : colors.surfaceContainerHighest,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child:
-                        index < _currentStep
-                            ? const Icon(
-                              Icons.check,
-                              size: 16,
-                              color: Colors.white,
-                            )
-                            : Text(
-                              '${index + 1}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color:
-                                    isActive
-                                        ? Colors.white
-                                        : colors.onSurface.withOpacity(0.5),
-                              ),
-                            ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    steps[index],
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight:
-                          isCurrent ? FontWeight.w600 : FontWeight.normal,
-                      color:
-                          isCurrent
-                              ? colors.onSurface
-                              : colors.onSurface.withOpacity(0.5),
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (index < steps.length - 1) ...[
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Container(
-                      height: 2,
-                      color:
-                          index < _currentStep
-                              ? colors.primary
-                              : colors.surfaceContainerHighest,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                ],
-              ],
+        children: [
+          _buildStepDot(0, 'Choose Plan', colors),
+          Expanded(
+            child: Container(
+              height: 2,
+              color:
+                  _currentStep >= 1
+                      ? colors.primary
+                      : colors.onSurface.withOpacity(0.15),
             ),
-          );
-        }),
+          ),
+          _buildStepDot(1, 'Review & Submit', colors),
+        ],
       ),
     );
   }
 
-  Widget _buildCurrentStep(ColorScheme colors) {
-    switch (_currentStep) {
-      case 0:
-        return _buildPlanStep(colors);
-      case 1:
-        return _buildDocumentStep(colors);
-      case 2:
-        return _buildReviewStep(colors);
-      default:
-        return const SizedBox.shrink();
-    }
+  Widget _buildStepDot(int step, String label, ColorScheme colors) {
+    final isActive = _currentStep >= step;
+    return Column(
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isActive ? colors.primary : colors.surfaceVariant,
+            border: Border.all(
+              color:
+                  isActive ? colors.primary : colors.onSurface.withOpacity(0.2),
+              width: 2,
+            ),
+          ),
+          child: Center(
+            child:
+                isActive && _currentStep > step
+                    ? Icon(Icons.check, size: 16, color: colors.onPrimary)
+                    : Text(
+                      '${step + 1}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color:
+                            isActive
+                                ? colors.onPrimary
+                                : colors.onSurface.withOpacity(0.5),
+                      ),
+                    ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+            color:
+                isActive ? colors.primary : colors.onSurface.withOpacity(0.5),
+          ),
+        ),
+      ],
+    );
   }
 
-  // ─────────────────────── Step 1: Plan Selection ───────────────────────
+  // ─── Step 1: Plan Selection ───
 
-  Widget _buildPlanStep(ColorScheme colors) {
-    final price = widget.eligibility.price;
+  Widget _buildPlanSelectionStep(ColorScheme colors) {
     final formatCurrency = ref.watch(currencyFormattingProvider);
+    final durations = widget.eligibility.availableDurations;
+
+    // If sale product, limit to first duration
+    final availableDurations =
+        widget.eligibility.isSaleProduct ? [durations.first] : durations;
 
     return Column(
-      key: const ValueKey('step-plan'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Product price card
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: colors.primary.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: colors.primary.withOpacity(0.15)),
+          ),
+          child: Column(
+            children: [
+              Text(
+                'Product Price',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: colors.onSurface.withOpacity(0.6),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                formatCurrency(widget.productPrice),
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: colors.primary,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 24),
+
+        // Duration selection
         Text(
-          'Choose Your Plan',
+          'Select Payment Plan',
           style: TextStyle(
-            fontSize: 18,
+            fontSize: 16,
             fontWeight: FontWeight.w700,
             color: colors.onSurface,
           ),
         ),
         const SizedBox(height: 4),
         Text(
-          'Select a payment duration that works for you',
+          'Choose how many months you\'d like to pay over',
           style: TextStyle(
             fontSize: 13,
-            color: colors.onSurface.withOpacity(0.6),
+            color: colors.onSurface.withOpacity(0.5),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
 
-        // Duration options
-        ...widget.eligibility.availableDurations.map((months) {
-          final depositPct = widget.eligibility.depositPercentage;
-          final deposit = price * depositPct / 100;
-          final remaining = price - deposit;
-          final monthly = remaining / months;
-          final isSelected = _selectedDuration == months;
+        ...availableDurations.map(
+          (months) => _buildDurationOption(months, colors, formatCurrency),
+        ),
 
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: InkWell(
-              onTap: () => setState(() => _selectedDuration = months),
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color:
-                      isSelected
-                          ? colors.primary.withOpacity(0.08)
-                          : colors.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isSelected ? colors.primary : colors.outlineVariant,
-                    width: isSelected ? 2 : 1,
+        if (widget.eligibility.isSaleProduct) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline, color: Colors.orange, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'This is a sale product. Only the ${durations.first}-month plan is available.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.orange.shade800,
+                    ),
                   ),
                 ),
-                child: Row(
+              ],
+            ),
+          ),
+        ],
+
+        const SizedBox(height: 24),
+
+        // Payment breakdown
+        if (_selectedDuration != null)
+          _buildPaymentBreakdown(colors, formatCurrency),
+      ],
+    );
+  }
+
+  Widget _buildDurationOption(
+    int months,
+    ColorScheme colors,
+    String Function(double) formatCurrency,
+  ) {
+    final isSelected = _selectedDuration == months;
+    final monthly = (widget.productPrice - _deposit) / months;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: () => setState(() => _selectedDuration = months),
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color:
+                isSelected ? colors.primary.withOpacity(0.08) : colors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? colors.primary : colors.outlineVariant,
+              width: isSelected ? 2 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              // Radio indicator
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isSelected ? colors.primary : Colors.transparent,
+                  border: Border.all(
+                    color:
+                        isSelected
+                            ? colors.primary
+                            : colors.onSurface.withOpacity(0.3),
+                    width: 2,
+                  ),
+                ),
+                child:
+                    isSelected
+                        ? const Center(
+                          child: Icon(
+                            Icons.check,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                        )
+                        : null,
+              ),
+              const SizedBox(width: 14),
+
+              // Duration label
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      isSelected
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_off,
-                      color: isSelected ? colors.primary : colors.outline,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '$months months',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: colors.onSurface,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${widget.eligibility.depositPercentage}% deposit (${formatCurrency(deposit)})',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: colors.onSurface.withOpacity(0.6),
-                            ),
-                          ),
-                        ],
+                    Text(
+                      '$months months',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: colors.onSurface,
                       ),
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '${formatCurrency(monthly)}',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: colors.primary,
-                          ),
-                        ),
-                        Text(
-                          '/month',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: colors.onSurface.withOpacity(0.5),
-                          ),
-                        ),
-                      ],
+                    Text(
+                      '${formatCurrency(monthly)} / month',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colors.onSurface.withOpacity(0.5),
+                      ),
                     ),
                   ],
                 ),
               ),
-            ),
-          );
-        }),
-        const SizedBox(height: 12),
 
-        // Summary
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: colors.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            children: [
-              _summaryRow(colors, 'Product Price', '${formatCurrency(price)}'),
-              _summaryRow(colors, 'Interest', '0%'),
-              _summaryRow(
-                colors,
-                'Total',
-                '${formatCurrency(price)}',
-                isBold: true,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ─────────────────────── Step 2: Document Verification ───────────────────────
-
-  Widget _buildDocumentStep(ColorScheme colors) {
-    final docsAsync = ref.watch(laybyUploadedDocumentsProvider);
-
-    return Column(
-      key: const ValueKey('step-document'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'ID Verification',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: colors.onSurface,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Upload your ID document for verification',
-          style: TextStyle(
-            fontSize: 13,
-            color: colors.onSurface.withOpacity(0.6),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Document type dropdown
-        DropdownButtonFormField<String>(
-          value: _documentType,
-          decoration: InputDecoration(
-            labelText: 'Document Type',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-          items:
-              _documentTypes
-                  .map(
-                    (t) => DropdownMenuItem(
-                      value: t,
-                      child: Text(_documentTypeLabels[t] ?? t),
+              // Right-aligned info
+              if (isSelected)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.primary,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'Selected',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: colors.onPrimary,
                     ),
-                  )
-                  .toList(),
-          onChanged: (v) => setState(() => _documentType = v!),
-        ),
-        const SizedBox(height: 12),
-
-        // Document number
-        TextFormField(
-          controller: _documentNumberController,
-          decoration: InputDecoration(
-            labelText: 'Document Number',
-            hintText: 'Enter your document number',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Document upload
-        docsAsync.when(
-          data:
-              (existingDocs) => DocumentUploadWidget(
-                existingDocuments: existingDocs,
-                onAttachmentReady: (attachment) {
-                  setState(() {
-                    _uploadedAttachment = attachment;
-                    _selectedExistingDoc = null;
-                  });
-                },
-                onExistingDocumentSelected: (doc) {
-                  setState(() {
-                    _selectedExistingDoc = doc;
-                    _uploadedAttachment = null;
-                  });
-                },
-              ),
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error:
-              (_, __) => DocumentUploadWidget(
-                existingDocuments: const [],
-                onAttachmentReady: (attachment) {
-                  setState(() {
-                    _uploadedAttachment = attachment;
-                    _selectedExistingDoc = null;
-                  });
-                },
-                onExistingDocumentSelected: (_) {},
-              ),
-        ),
-      ],
-    );
-  }
-
-  // ─────────────────────── Step 3: Review ───────────────────────
-
-  Widget _buildReviewStep(ColorScheme colors) {
-    final price = widget.eligibility.price;
-    final deposit = price * widget.eligibility.depositPercentage / 100;
-    final remaining = price - deposit;
-    final monthly =
-        _selectedDuration != null && _selectedDuration! > 0
-            ? remaining / _selectedDuration!
-            : 0.0;
-    final formatCurrency = ref.watch(currencyFormattingProvider);
-
-    return Column(
-      key: const ValueKey('step-review'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Review Application',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: colors.onSurface,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Please review your layby application details',
-          style: TextStyle(
-            fontSize: 13,
-            color: colors.onSurface.withOpacity(0.6),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        _reviewSection(colors, 'Plan Details', [
-          _summaryRow(colors, 'Duration', '$_selectedDuration months'),
-          _summaryRow(colors, 'Product Price', '${formatCurrency(price)}'),
-          _summaryRow(
-            colors,
-            'Deposit (${widget.eligibility.depositPercentage}%)',
-            '${formatCurrency(deposit)}',
-          ),
-          _summaryRow(colors, 'Monthly Payment', '${formatCurrency(monthly)}'),
-          _summaryRow(
-            colors,
-            'Total Amount',
-            '${formatCurrency(price)}',
-            isBold: true,
-          ),
-        ]),
-        const SizedBox(height: 12),
-
-        _reviewSection(colors, 'ID Document', [
-          _summaryRow(
-            colors,
-            'Type',
-            _documentTypeLabels[_documentType] ?? _documentType,
-          ),
-          _summaryRow(colors, 'Number', _documentNumberController.text),
-          _summaryRow(
-            colors,
-            'Source',
-            _selectedExistingDoc != null
-                ? 'Previously uploaded'
-                : _uploadedAttachment != null
-                ? 'Newly uploaded'
-                : 'Not provided',
-          ),
-        ]),
-        const SizedBox(height: 16),
-
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.amber.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.amber.withOpacity(0.3)),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.info_outline, color: Colors.amber, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Your application will be reviewed within 1-2 business days. You will be notified once approved.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: colors.onSurface.withOpacity(0.7),
                   ),
                 ),
-              ),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 
-  Widget _reviewSection(
+  Widget _buildPaymentBreakdown(
     ColorScheme colors,
-    String title,
-    List<Widget> children,
+    String Function(double) formatCurrency,
   ) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(8),
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            title,
+            'Payment Breakdown',
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 15,
               fontWeight: FontWeight.w700,
               color: colors.onSurface,
             ),
           ),
+          const SizedBox(height: 14),
+          _buildBreakdownRow(
+            'Deposit (${widget.eligibility.depositPercentage}%)',
+            formatCurrency(_deposit),
+            colors,
+          ),
+          _buildBreakdownRow(
+            'Monthly Payment',
+            formatCurrency(_monthlyPayment),
+            colors,
+          ),
+          _buildBreakdownRow('Duration', '$_selectedDuration months', colors),
+          const Divider(height: 20),
+          _buildBreakdownRow(
+            'Total',
+            formatCurrency(_totalAmount),
+            colors,
+            isBold: true,
+          ),
           const SizedBox(height: 8),
-          ...children,
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.check_circle_outline,
+                  size: 16,
+                  color: Colors.green.shade700,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '0% Interest — You only pay the product price',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.green.shade700,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _summaryRow(
-    ColorScheme colors,
+  Widget _buildBreakdownRow(
     String label,
-    String value, {
+    String value,
+    ColorScheme colors, {
     bool isBold = false,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             label,
             style: TextStyle(
-              fontSize: 13,
-              color: colors.onSurface.withOpacity(0.6),
+              fontSize: 14,
+              fontWeight: isBold ? FontWeight.w700 : FontWeight.w400,
+              color: colors.onSurface.withOpacity(isBold ? 1 : 0.7),
             ),
           ),
           Text(
             value,
             style: TextStyle(
-              fontSize: 13,
-              fontWeight: isBold ? FontWeight.w700 : FontWeight.w600,
-              color: colors.onSurface,
+              fontSize: 14,
+              fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
+              color: isBold ? colors.primary : colors.onSurface,
             ),
           ),
         ],
@@ -581,67 +500,199 @@ class _LaybyApplicationScreenState
     );
   }
 
-  // ─────────────────────── Bottom Buttons ───────────────────────
+  // ─── Step 2: Review & Submit ───
 
-  Widget _buildBottomButtons(ColorScheme colors) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    return Container(
-      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomPadding),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
+  Widget _buildReviewStep(ColorScheme colors) {
+    final formatCurrency = ref.watch(currencyFormattingProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Summary card
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: colors.outlineVariant),
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          if (_currentStep > 0)
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () => setState(() => _currentStep--),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Text('Back'),
-              ),
-            ),
-          if (_currentStep > 0) const SizedBox(width: 12),
-          Expanded(
-            flex: 2,
-            child: ElevatedButton(
-              onPressed: _isSubmitting ? null : _handleNext,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: colors.primary,
-                foregroundColor: colors.onPrimary,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Application Summary',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: colors.onSurface,
                 ),
               ),
-              child:
-                  _isSubmitting
-                      ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                      : Text(
-                        _currentStep == 2 ? 'Submit Application' : 'Continue',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+              const SizedBox(height: 16),
+              _buildSummaryRow(
+                'Plan Duration',
+                '$_selectedDuration months',
+                colors,
+              ),
+              _buildSummaryRow('Deposit', formatCurrency(_deposit), colors),
+              _buildSummaryRow(
+                'Monthly Payment',
+                formatCurrency(_monthlyPayment),
+                colors,
+              ),
+              const Divider(height: 20),
+              _buildSummaryRow(
+                'Total Amount',
+                formatCurrency(_totalAmount),
+                colors,
+                isBold: true,
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        // Info about document upload
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.blue.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.blue.withOpacity(0.15)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ID Document',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.blue.shade900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'You\'ll need to upload your ID document to complete the application. You can do this now or later from "My Laybys".',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.blue.shade800,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        // Terms & conditions
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: colors.outlineVariant),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Terms & Conditions',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: colors.onSurface,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _buildTermItem(
+                'Your application will be reviewed within 1-2 business days.',
+                colors,
+              ),
+              _buildTermItem(
+                'Once approved, you\'ll need to make the deposit payment to activate your layby.',
+                colors,
+              ),
+              _buildTermItem(
+                'Monthly payments must be made on time to keep your layby active.',
+                colors,
+              ),
+              _buildTermItem(
+                'The product will be delivered/dispatched after full payment.',
+                colors,
+              ),
+              const SizedBox(height: 12),
+              InkWell(
+                onTap: () {
+                  setState(() => _agreedToTerms = !_agreedToTerms);
+                },
+                child: Row(
+                  children: [
+                    Checkbox(
+                      value: _agreedToTerms,
+                      onChanged: (v) {
+                        setState(() => _agreedToTerms = v ?? false);
+                      },
+                      activeColor: colors.primary,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'I agree to the layby terms and conditions',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: colors.onSurface,
                         ),
                       ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSummaryRow(
+    String label,
+    String value,
+    ColorScheme colors, {
+    bool isBold = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              color: colors.onSurface.withOpacity(isBold ? 1 : 0.6),
+              fontWeight: isBold ? FontWeight.w700 : FontWeight.w400,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              color: isBold ? colors.primary : colors.onSurface,
+              fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
             ),
           ),
         ],
@@ -649,75 +700,226 @@ class _LaybyApplicationScreenState
     );
   }
 
-  void _handleNext() {
-    if (_currentStep == 0) {
-      if (_selectedDuration == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a payment duration')),
-        );
-        return;
-      }
-      setState(() => _currentStep = 1);
-    } else if (_currentStep == 1) {
-      if (_documentNumberController.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please enter your document number')),
-        );
-        return;
-      }
-      if (_uploadedAttachment == null && _selectedExistingDoc == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please upload or select an ID document'),
+  Widget _buildTermItem(String text, ColorScheme colors) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Icon(
+              Icons.check_circle_outline,
+              size: 16,
+              color: colors.primary,
+            ),
           ),
-        );
-        return;
-      }
-      setState(() => _currentStep = 2);
-    } else if (_currentStep == 2) {
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 13,
+                color: colors.onSurface.withOpacity(0.7),
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Bottom Action Bar ───
+
+  Widget _buildBottomBar(ColorScheme colors, LaybyState laybyState) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border(top: BorderSide(color: colors.outlineVariant)),
+      ),
+      child: SafeArea(
+        child: SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton(
+            onPressed: _canProceed(laybyState) ? _handleAction : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colors.primary,
+              foregroundColor: colors.onPrimary,
+              disabledBackgroundColor: colors.primary.withOpacity(0.4),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 0,
+            ),
+            child:
+                laybyState.isLoading
+                    ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white,
+                      ),
+                    )
+                    : Text(
+                      _currentStep == 0
+                          ? 'Continue to Review'
+                          : 'Submit Application',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  bool _canProceed(LaybyState laybyState) {
+    if (laybyState.isLoading) return false;
+    if (_currentStep == 0) {
+      return _selectedDuration != null;
+    } else {
+      return _agreedToTerms;
+    }
+  }
+
+  void _handleAction() {
+    if (_currentStep == 0) {
+      setState(() => _currentStep = 1);
+    } else {
       _submitApplication();
     }
   }
 
   Future<void> _submitApplication() async {
-    setState(() => _isSubmitting = true);
-
-    final attachmentId =
-        _selectedExistingDoc != null
-            ? _selectedExistingDoc!.attachmentId.toString()
-            : _uploadedAttachment?.id ?? '';
-
+    final notifier = ref.read(laybyNotifierProvider.notifier);
     final request = LaybyApplyRequest(
       productId: widget.productId,
       variationId: widget.variationId,
       durationMonths: _selectedDuration!,
-      idDocumentAttachmentId: attachmentId,
-      idDocumentType: _documentType,
-      idDocumentNumber: _documentNumberController.text.trim(),
     );
 
-    final application = await ref
-        .read(laybyNotifierProvider.notifier)
-        .applyForLayby(request);
-
-    setState(() => _isSubmitting = false);
+    final application = await notifier.applyForLayby(request);
 
     if (!mounted) return;
 
     if (application != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Layby application submitted successfully!'),
-          backgroundColor: Colors.green,
-        ),
+      // Success — show dialog with options
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder:
+            (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Row(
+                children: [
+                  Icon(
+                    Icons.check_circle,
+                    color: Colors.green.shade600,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Application Submitted!',
+                      style: TextStyle(fontSize: 18),
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Your layby application has been submitted successfully. We will review and get back to you within 1-2 business days.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(0.7),
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Application #: ${application.applicationNumber}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  if (application.needsDocument) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.warning_amber_rounded,
+                            color: Colors.orange,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Don\'t forget to upload your ID document to complete the application.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.orange.shade800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    // Go to layby list
+                    context.go('/layby');
+                  },
+                  child: const Text('Go to My Laybys'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    // Go to application details (where they can upload document)
+                    context.push('/layby/${application.id}');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text('View Details'),
+                ),
+              ],
+            ),
       );
-      context.go('/layby/${application.id}');
     } else {
+      // Error
       final error = ref.read(laybyNotifierProvider).error;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(error ?? 'Failed to submit application'),
-          backgroundColor: Colors.red,
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
     }
